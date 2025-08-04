@@ -20,11 +20,13 @@ app.use(express.urlencoded({ extended: true }))
 app.use(express.static("public"))
 app.use(cookieParser())
 
-import adminRoutes from './routes/user.routes.js';
+import userRoutes from './routes/user.routes.js';
 import authRoutes from './routes/auth.routes.js';
+import serviceRoutes from './routes/service.routes.js';
 
-app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/service', serviceRoutes);
 
 app.get('/', (req, res) => {
     res.json({

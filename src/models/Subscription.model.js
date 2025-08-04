@@ -22,18 +22,21 @@ const subscriptionSchema = new mongoose.Schema({
         required: [true, "Subscription name is required"],
         unique: [true, "Subscription name already exist"]
     },
-
+    active: {
+        type: Boolean,
+        default: true
+    },
     limit: {
         type: Number,
-        required: [true, "Service limit request is required"]
+        // required: [true, "Service limit request is required"]
     },
     duration: {
         type: Number,
-        required: [true, "Plan duration is required"]
+        // required: [true, "Plan duration is required"]
     },
     durationUnit: {
         type: Number,
-        required: [true, "Specify the unit of duration - month/year"]
+        // required: [true, "Specify the unit of duration - month/year"]
     },
     startDate: {
         type: Date,

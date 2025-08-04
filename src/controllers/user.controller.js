@@ -127,6 +127,64 @@ const createCompany = asyncHandler(async (req, res) => {
 
 });
 
+const createRider = asyncHandler(async (req, res) => {
+    let {
+        name, email, phoneNo,
+        password
+    } = req.body;
+
+    if (
+        [name, email, phoneNo, password].some((field) => field?.trim() === "")
+    ) {
+        throw new ApiError(400, "All fields are required")
+    }
+
+    name = name?.trim();
+    email = email?.trim();
+    phoneNo = phoneNo?.trim();
+    password = password?.trim();
+    const user_id = generateOtherIds(ROLES.RIDER);
+
+    if (!user_id) {
+        throw new ApiError(404, "Could not generate rider Id");
+    }
+
+    const existedUser = await User.findOne({
+        $or: [{ phoneNo }, { email }]
+    })
+
+    // console.log(existedUser);
+    if (existedUser) {
+        throw new ApiError(409, "User with email or phone number already exists")
+    }
+
+    const user = await User.create({
+        user_id,
+        name,
+        email,
+        phoneNo,
+        password,
+        role: ROLES.RIDER,
+    })
+
+    if (!user) {
+        throw new ApiError(500, `Something went wrong while creating the rider`)
+    }
+
+    let createdUser = await User.findById(user._id)
+        .select("-password -refreshToken")
+        .exec();
+
+    if (!createdUser) {
+        throw new ApiError(500, `Something went wrong while creating the rider`)
+    }
+
+    return res.status(201).json(
+        new ApiResponse(201, createdUser, `Rider registered Successfully`)
+    )
+
+});
+
 const createUser = asyncHandler(async (req, res) => {
     let {
         name, email, phoneNo,
@@ -135,7 +193,7 @@ const createUser = asyncHandler(async (req, res) => {
     } = req.body;
 
     if (
-        [name, email, phoneNo, password].some((field) => field?.trim() === "")
+        [name, email, phoneNo, password, type].some((field) => field?.trim() === "")
     ) {
         throw new ApiError(400, "All fields are required")
     }
@@ -332,6 +390,7 @@ const loginUser = asyncHandler(async (req, res) => {
 export {
     createEmployee,
     createCompany,
+    createRider,
     createUser,
     loginUser
 }

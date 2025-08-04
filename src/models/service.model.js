@@ -14,7 +14,11 @@ const serviceSchema = new mongoose.Schema({
     active: {
         type: Boolean,
         default: true
-    }
+    },
+    packages: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Subscription"
+    }]
 });
 
 export const Service = mongoose.model("Service", serviceSchema);
