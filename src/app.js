@@ -23,10 +23,12 @@ app.use(cookieParser())
 import userRoutes from './routes/user.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import serviceRoutes from './routes/service.routes.js';
+import carRoutes from './routes/car.routes.js';
 
 app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/service', serviceRoutes);
+app.use('/api/v1/car', carRoutes);
 
 app.get('/', (req, res) => {
     res.json({

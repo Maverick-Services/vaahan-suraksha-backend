@@ -5,89 +5,6 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { generateServiceId } from "../utils/generateId.js";
 
-// Brand Management Controllers
-const createBrand = asyncHandler(async (req, res) => {
-    const {
-        name,
-        active
-    } = req.body;
-
-    if (!name || active == undefined || active == null) {
-        throw new ApiError(404, "Complete details not found to create brand");
-    }
-
-    // const service_id = generateServiceId();
-
-    // if (!service_id) {
-    //     throw new ApiError(500, "Could not generate service Id");
-    // }
-
-    const newBrand = await Brand.create({
-        // service_id,
-        name,
-        active
-    });
-
-    if (!newBrand) {
-        throw new ApiError(500, "Could not create brand");
-    }
-
-    return res.status(201).json(
-        new ApiResponse(201, newBrand, "Brand created successfully")
-    )
-
-});
-
-const createCarModel = asyncHandler(async (req, res) => {
-    const {
-        brandId,
-        name,
-        active
-    } = req.body;
-
-    if (!brandId) {
-        throw new ApiError(404, "Brand Id required in model details");
-    }
-
-    if (!name || active == undefined || active == null) {
-        throw new ApiError(404, "Complete details not found to create car model");
-    }
-
-    const foundBrand = await Brand.findById(brandId);
-    if (!foundBrand) {
-        throw new ApiError(500, "Brand not found");
-    }
-
-    const newCarModel = await CarModel.create({
-        brand: brandId,
-        name,
-        active
-    });
-
-    if (!newCarModel) {
-        throw new ApiError(500, "Could not create car model");
-    }
-
-    const updatedBrand = await Brand.findByIdAndUpdate(
-        brandId,
-        {
-            $push: {
-                car_models: newCarModel?._id
-            }
-        },
-        { new: true }
-    );
-
-    if (!updatedBrand) {
-        throw new ApiError(500, "Could not add car model in brand");
-    }
-
-    return res.status(201).json(
-        new ApiResponse(201, newCarModel, "Car Model created successfully")
-    )
-
-});
-
 const createProduct = asyncHandler(async (req, res) => {
     let {
         name, brandId, carModelId, description,
@@ -162,6 +79,4 @@ const createProduct = asyncHandler(async (req, res) => {
 });
 
 export {
-    createBrand,
-    createCarModel
 }
