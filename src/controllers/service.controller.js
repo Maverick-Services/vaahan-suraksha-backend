@@ -7,6 +7,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { generateServiceId } from "../utils/generateId.js";
 
 // Service Management Controllers
+
 const createService = asyncHandler(async (req, res) => {
     const {
         name,
@@ -39,7 +40,59 @@ const createService = asyncHandler(async (req, res) => {
 
 });
 
+const updateService = asyncHandler(async (req, res) => {
+    const updates = req.body;
+    const { serviceId } = req?.body;
+
+    if (!updates) {
+        throw new ApiError(404, "Nothing found to update in service");
+    }
+
+    if (!serviceId) {
+        throw new ApiError(500, "Could not find service Id");
+    }
+
+    const foundService = await Service.findById(serviceId);
+    if (!foundService) {
+        throw new ApiError(500, "Service not found");
+    }
+
+    const updatedService = await Service.findByIdAndUpdate(
+        serviceId,
+        {
+            ...updates
+        },
+        { new: true }
+    );
+
+    if (!updatedService) {
+        throw new ApiError(500, "Could not update service");
+    }
+
+    return res.status(201).json(
+        new ApiResponse(201, updatedService, "Service updated successfully")
+    )
+
+});
+
+const getServices = asyncHandler(async (req, res) => {
+
+    const allServices = await Service.find({
+        active: true
+    });
+
+    if (!allServices) {
+        throw new ApiError(500, "Could not get services");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, allServices, "Services fetched successfully")
+    )
+
+});
+
 // Subscription Management Controllers
+
 const createSubscription = asyncHandler(async (req, res) => {
     const {
         name,
@@ -72,7 +125,41 @@ const createSubscription = asyncHandler(async (req, res) => {
 
 });
 
-// Subscription Management Controllers
+const updateSubscription = asyncHandler(async (req, res) => {
+    const updates = req.body;
+    const { subscriptionId } = req?.body;
+
+    if (!updates) {
+        throw new ApiError(404, "Nothing found to update in subscription plan");
+    }
+
+    if (!subscriptionId) {
+        throw new ApiError(500, "Could not find subscription Id");
+    }
+
+    const foundSubscription = await Subscription.findById(subscriptionId);
+    if (!foundSubscription) {
+        throw new ApiError(500, "Subscription not found");
+    }
+
+    const updatedSubscription = await Subscription.findByIdAndUpdate(
+        subscriptionId,
+        {
+            ...updates
+        },
+        { new: true }
+    );
+
+    if (!updatedSubscription) {
+        throw new ApiError(500, "Could not update subscription");
+    }
+
+    return res.status(201).json(
+        new ApiResponse(201, updatedSubscription, "Subscription updated successfully")
+    )
+
+});
+
 const addServiceInSubscription = asyncHandler(async (req, res) => {
     const {
         subscriptionId,
@@ -133,7 +220,6 @@ const addServiceInSubscription = asyncHandler(async (req, res) => {
 
 });
 
-// Controller for bulk updating services in subscription at subscription module
 const bulkServicesUpdateInSubscription = asyncHandler(async (req, res) => {
     const {
         subscriptionId,
@@ -209,9 +295,29 @@ const bulkServicesUpdateInSubscription = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, populatedSubscription, "Subscription services updated"));
 });
 
+const getSubscriptions = asyncHandler(async (req, res) => {
+
+    const allSubscriptions = await Subscription.find({
+        active: true
+    });
+
+    if (!allSubscriptions) {
+        throw new ApiError(500, "Could not get subscriptions");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, allSubscriptions, "Subscriptions fetched successfully")
+    )
+
+});
+
 export {
     createService,
+    updateService,
+    getServices,
     createSubscription,
+    updateSubscription,
+    getSubscriptions,
     addServiceInSubscription,
     bulkServicesUpdateInSubscription
 }

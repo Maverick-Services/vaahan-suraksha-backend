@@ -265,6 +265,34 @@ const createUser = asyncHandler(async (req, res) => {
     )
 });
 
+const updateProfile = asyncHandler(async (req, res) => {
+    const updates = req.body;
+    const { userId } = req?.body;
+
+    if (!updates) {
+        throw new ApiError(404, "Nothing found to update in profile");
+    }
+
+    if (!userId) {
+        throw new ApiError(500, "Could not find user Id");
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+        throw new ApiError(500, "User not found");
+    }
+
+    // Merge updates into user object
+    Object.assign(user, updates);
+
+    // Save triggers pre('save') hooks like password hashing
+    await user.save();
+
+    return res.status(201).json(
+        new ApiResponse(201, user, "User updated successfully")
+    );
+});
+
 const generateAccessAndRefereshTokens = async (userId) => {
     try {
         const user = await User.findById(userId)
@@ -392,5 +420,6 @@ export {
     createCompany,
     createRider,
     createUser,
+    updateProfile,
     loginUser
 }

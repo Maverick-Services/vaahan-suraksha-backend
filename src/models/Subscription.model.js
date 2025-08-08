@@ -1,11 +1,16 @@
 import mongoose from "mongoose";
 
-const pricingSchema = {
+const pricingSchema = new mongoose.Schema({
     type: {
         type: String,
         enum: ["b2b", "b2c"],
-        required: [true, "Customer Type is required"]
+        // required: [true, "Customer Type is required"]
     },
+    // userLimit: {
+    //     type: Number,
+    //     required: [true, "User limit is required"],
+    //     // unique: [true, "User limit must be unique"]
+    // },
     oneTimePrice: {
         type: Number,
         required: [true, "One Time price is required"]
@@ -14,7 +19,7 @@ const pricingSchema = {
         type: Number,
         required: [true, "Monthly price is required"]
     },
-}
+}, { _id: false });
 
 const subscriptionSchema = new mongoose.Schema({
     name: {
@@ -35,7 +40,9 @@ const subscriptionSchema = new mongoose.Schema({
         // required: [true, "Plan duration is required"]
     },
     durationUnit: {
-        type: Number,
+        type: String,
+        enum: ["month", "year"],
+        default: "year"
         // required: [true, "Specify the unit of duration - month/year"]
     },
     startDate: {
@@ -46,7 +53,11 @@ const subscriptionSchema = new mongoose.Schema({
         type: Date,
         // required: [true, "Service limit request is required"]
     },
-    pricing: [pricingSchema],
+    pricing: {
+        type: Map,
+        of: pricingSchema,
+        default: () => new Map()
+    },
     services: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Service"

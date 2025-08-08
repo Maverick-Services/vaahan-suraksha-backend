@@ -1,15 +1,30 @@
 import { Router } from "express";
+import { verifyJWT } from './../middlewares/auth.middlewares.js';
 import {
     createService,
+    createSubscription,
+    updateSubscription,
     addServiceInSubscription, bulkServicesUpdateInSubscription,
-    createSubscription
+    getServices,
+    getSubscriptions,
+    updateService,
 } from "../controllers/service.controller.js";
+import { getPaginatedServices, getPaginatedSubscriptions } from "../controllers/pagination.controller.js";
 
 const router = Router()
 
-router.route("/create").post(createService);
-router.route("/subscription/create").post(createSubscription);
-router.route("/subscription/addService").post(addServiceInSubscription);
-router.route("/subscription/bulkUpdateServices").post(bulkServicesUpdateInSubscription);
+// Service Management Routes
+router.route("/create").post(verifyJWT, createService);
+router.route("/update").put(verifyJWT, updateService);
+router.route("/paginated/").get(verifyJWT, getPaginatedServices);
+router.route("/").get(getServices);
+
+// Subscription Management Routes
+router.route("/subscription/create").post(verifyJWT, createSubscription);
+router.route("/subscription/update").put(verifyJWT, updateSubscription);
+router.route("/subscription/addService").post(verifyJWT, addServiceInSubscription);
+router.route("/subscription/bulkUpdateServices").post(verifyJWT, bulkServicesUpdateInSubscription);
+router.route("/subscription/paginated/").get(verifyJWT, getPaginatedSubscriptions);
+router.route("/subscription/").get(getSubscriptions);
 
 export default router

@@ -55,6 +55,14 @@ const userSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
+    active: {
+        type: Boolean,
+        default: true
+    },
+    isSubscribed: {
+        type: Boolean,
+        default: false
+    },
     refreshToken: {
         type: String
     },
