@@ -260,6 +260,44 @@ const updateCar = asyncHandler(async (req, res) => {
 
 });
 
+const deleteCar = asyncHandler(async (req, res) => {
+    const { carId } = req?.body;
+
+    if (!carId) {
+        throw new ApiError(500, "Could not find car Id");
+    }
+
+    const foundCar = await Car.findById(carId);
+    if (!foundCar) {
+        throw new ApiError(500, "Car not found");
+    }
+
+    // delete car
+    const deletedCar = await Car.findByIdAndDelete(carId);
+
+    if (!deletedCar) {
+        throw new ApiError(500, "Could not delete car");
+    }
+
+    //remove car from user
+    const updatedUser = await User.findByIdAndUpdate(
+        deletedCar?.userId,
+        {
+            car: null
+        },
+        { new: true }
+    );
+
+    if (!updatedUser) {
+        throw new ApiError(500, "Could not remove car from user profile");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, { car: deletedCar, user: updatedUser }, "car deleted successfully")
+    )
+
+});
+
 const getCarByUser = asyncHandler(async (req, res) => {
 
     const userId = req?.user?._id;
@@ -285,5 +323,6 @@ export {
     getCarModelsByBrand,
     createCar,
     updateCar,
+    deleteCar,
     getCarByUser
 }

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { verifyJWT } from './../middlewares/auth.middlewares.js';
 import {
     createBrand, createCar, createCarModel,
+    deleteCar,
     getBrands,
     getCarByUser,
     getCarModelsByBrand,
@@ -27,6 +28,7 @@ router.route("/model/:brandId").get(getCarModelsByBrand);
 // User Car Management Routes
 router.route("/create").post(verifyJWT, createCar);
 router.route("/update").put(verifyJWT, updateCar);
+router.route("/delete").delete(verifyJWT, deleteCar);
 router.route("/").get(verifyJWT, getCarByUser);
 
 export default router
