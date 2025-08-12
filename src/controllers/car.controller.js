@@ -143,8 +143,7 @@ const createCar = asyncHandler(async (req, res) => {
         carModelId,
         // name,
         transmission,
-        fuel,
-        active
+        fuel
     } = req.body;
 
     if (!brandId || !mongoose.Types.ObjectId.isValid(brandId)) {
@@ -173,9 +172,13 @@ const createCar = asyncHandler(async (req, res) => {
         throw new ApiError(500, "Car Model not found");
     }
 
+    if (foundCarModel?.brand?.toString() != foundBrand?._id?.toString()) {
+        throw new ApiError(404, "Car model not found in brand");
+    }
+
     const newCar = await Car.create({
         brand: brandId,
-        // name,
+        car_model: carModelId,
         transmission,
         fuel,
         userId: req?.user?._id
@@ -234,7 +237,7 @@ const updateCar = asyncHandler(async (req, res) => {
 
         const foundCarModel = await CarModel.findById(updates?.carModelId);
         if (!foundCarModel) {
-            throw new ApiError(500, "Carm Model does not exist");
+            throw new ApiError(500, "Car Model does not exist");
         }
 
         if (foundCarModel?.brand?.toString() != foundBrand?._id?.toString()) {

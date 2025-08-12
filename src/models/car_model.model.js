@@ -13,7 +13,11 @@ const carModelSchema = new mongoose.Schema({
     brand: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Brand"
-    }
+    },
+    products: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product"
+    }]
 });
 
 export const CarModel = mongoose.model("CarModel", carModelSchema);

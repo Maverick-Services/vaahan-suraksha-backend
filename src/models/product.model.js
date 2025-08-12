@@ -12,10 +12,15 @@ const productSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "CarModel"
     },
+    vendor: {
+        type: String,
+        // required: [true, "Car name is required"],
+        // unique: [true, "Service name already exist"]
+    },
     name: {
         type: String,
-        required: [true, "Service name is required"],
-        unique: [true, "Service name already exist"]
+        required: [true, "Car name is required"],
+        // unique: [true, "Service name already exist"]
     },
     active: {
         type: Boolean,
@@ -25,7 +30,7 @@ const productSchema = new mongoose.Schema({
         type: String,
         lowercase: true,
         // required: true,
-        unique: [true, 'Slug must be unique']
+        // unique: [true, 'Slug must be unique']
     },
     description: {
         type: String,
@@ -56,6 +61,9 @@ const productSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Stock',
     }],
+    images: [{
+        type: String,
+    }],
     regularPrice: {
         type: Number,
         min: 0,
@@ -80,9 +88,6 @@ const productSchema = new mongoose.Schema({
         },
         default: 0
     },
-    images: [{
-        type: String,
-    }],
 }, { timestamps: true });
 
 export const Product = mongoose.model("Product", productSchema);
