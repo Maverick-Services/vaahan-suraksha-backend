@@ -250,8 +250,25 @@ const updateProductStock = asyncHandler(async (req, res) => {
     );
 });
 
+const getProducts = asyncHandler(async (req, res) => {
+
+    const allProducts = await Product.find({
+        active: true
+    }).populate("brand car_model stock");
+
+    if (!allProducts) {
+        throw new ApiError(500, "Could not get products");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, allProducts, "Products fetched successfully")
+    )
+
+});
+
 export {
     createProduct,
     updateProduct,
-    updateProductStock
+    updateProductStock,
+    getProducts
 }
