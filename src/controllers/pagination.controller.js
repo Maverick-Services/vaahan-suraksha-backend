@@ -66,6 +66,61 @@ const getPaginatedUsers = asyncHandler(async (req, res) => {
     );
 });
 
+const getPaginatedMembers = asyncHandler(async (req, res) => {
+    const { startDate, endDate, searchQuery } = req.query;
+
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 10));
+    const skip = (page - 1) * limit;
+
+    const filter = {};
+
+    filter.company = req?.user?._id;
+
+    if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        end.setUTCHours(23, 59, 59, 999);
+        filter.createdAt = { $gte: start, $lte: end };
+    }
+
+    if (searchQuery) {
+        const regex = new RegExp(searchQuery, "i");
+        filter.$or = [
+            { name: regex },
+            { email: regex },
+            { phoneNo: regex }
+        ];
+    }
+
+    /* ========== Fetch Users with Pagination ========== */
+    const [members, totalCount] = await Promise.all([
+        User.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .select("-password -refreshToken")
+            .lean(),
+        User.countDocuments(filter),
+    ]);
+
+    const totalPages = Math.ceil(totalCount / limit);
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            members,
+            totalCount,
+            pagination: {
+                page,
+                limit,
+                totalPages,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1,
+            },
+        }, "Members fetched successfully")
+    );
+});
+
 const getPaginatedServices = asyncHandler(async (req, res) => {
     const { page = 1, limit = 10 } = req.query;
 
@@ -236,6 +291,7 @@ const getPaginatedProducts = asyncHandler(async (req, res) => {
 
 export {
     getPaginatedUsers,
+    getPaginatedMembers,
     getPaginatedServices,
     getPaginatedSubscriptions,
     getPaginatedProducts

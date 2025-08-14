@@ -234,6 +234,7 @@ const createUser = asyncHandler(async (req, res) => {
         phoneNo,
         password,
         role: ROLES.USER,
+        company,
         type
     })
 
