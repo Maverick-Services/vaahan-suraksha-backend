@@ -15,6 +15,9 @@ const serviceSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    images: [{
+        type: String,
+    }],
     packages: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Subscription"

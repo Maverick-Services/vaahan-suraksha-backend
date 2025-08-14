@@ -11,6 +11,9 @@ const carSchema = new mongoose.Schema({
         enum: ["Petrol", "Disel", "CNG"],
         default: "Petrol"
     },
+    image: {
+        type: String,
+    },
     brand: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Brand"

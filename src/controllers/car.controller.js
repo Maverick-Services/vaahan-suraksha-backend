@@ -12,6 +12,7 @@ import { ROLES } from "../constants.js";
 const createBrand = asyncHandler(async (req, res) => {
     const {
         name,
+        image,
         active
     } = req.body;
 
@@ -28,6 +29,7 @@ const createBrand = asyncHandler(async (req, res) => {
     const newBrand = await Brand.create({
         // service_id,
         name,
+        image,
         active
     });
 
@@ -62,6 +64,7 @@ const createCarModel = asyncHandler(async (req, res) => {
     const {
         brandId,
         name,
+        image,
         active
     } = req.body;
 
@@ -81,6 +84,7 @@ const createCarModel = asyncHandler(async (req, res) => {
     const newCarModel = await CarModel.create({
         brand: brandId,
         name,
+        image,
         active
     });
 
@@ -142,6 +146,7 @@ const createCar = asyncHandler(async (req, res) => {
         brandId,
         carModelId,
         // name,
+        image,
         transmission,
         fuel
     } = req.body;
@@ -181,6 +186,7 @@ const createCar = asyncHandler(async (req, res) => {
         car_model: carModelId,
         transmission,
         fuel,
+        image,
         userId: req?.user?._id
     });
 

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Brand } from "../models/brand.model.js";
 import { CarModel } from "../models/car_model.model.js";
 import { Product } from "../models/product.model.js";
@@ -5,7 +6,10 @@ import { Stock } from "../models/stock.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { RiderInventory } from "../models/rider_inventory.model.js";
+import { User } from "../models/user.model.js";
 
+// Product Management Controllers
 const createProduct = asyncHandler(async (req, res) => {
     let {
         name, vendor, brandId, carModelId, description,
@@ -266,9 +270,98 @@ const getProducts = asyncHandler(async (req, res) => {
 
 });
 
+
+// Rider Invertory Management Controllers
+const assignInventoryToRider = asyncHandler(async (req, res) => {
+    const session = await mongoose.startSession();
+
+    const {
+        riderId,
+        items
+    } = req.body;
+
+    try {
+
+        await session.withTransaction(async () => {
+
+
+            //create items array to create a rider inventory
+            let updatedItems = [];
+            for (let item of items) {
+
+                if (+item?.quantity <= 0) {
+                    throw new ApiError(404, `Quantity is not valid`);
+                }
+                const foundProduct = await Product.findById(item?.productId);
+                if (foundProduct) {
+
+                    if (foundProduct?.totalStock < +item?.quantity) {
+                        throw new ApiError(404, `${foundProduct?.name} is not in sufficient quantity`);
+                    }
+
+                    //Add product in items array
+                    const obj = {
+                        productId: item?.productId,
+                        name: foundProduct?.name,
+                        quantity: item?.quantity,
+                        price: foundProduct?.sellingPrice
+                    }
+
+                    updatedItems.push(obj);
+
+                    //update the product stock
+                    // foundProduct?.totalStock = foundProduct?.totalStock - quantity;
+                    // await foundProduct.save();
+                }
+            }
+
+            console.log("Inventory Items: ", updatedItems);
+
+            //create the inventory now
+            const newRiderInventory = await RiderInventory.create({
+                riderId,
+                items: updatedItems
+            });
+
+            if (!newRiderInventory) {
+                throw new ApiError(404, "Could not create rider inventory");
+            }
+
+            //assign the inventory to rider
+            const updatedRider = await User.findByIdAndUpdate(
+                riderId,
+                {
+                    inventory: newRiderInventory?._id
+                },
+                { new: true }
+            );
+            if (!updatedRider) {
+                throw new ApiError(404, "Could not assign inventory to rider");
+            }
+
+            // reduce the product stock of items that are added in rider inventory
+            for (let item of newRiderInventory?.items) {
+                let foundProduct = await Product.findById(item?.productId);
+                const updatedStock = foundProduct?.totalStock - item?.quantity;
+                foundProduct.totalStock = updatedStock;
+                await foundProduct.save();
+            }
+
+        });
+
+    } catch (error) {
+
+    } finally {
+        session.endSession();
+    }
+
+});
+
 export {
     createProduct,
     updateProduct,
     updateProductStock,
-    getProducts
+    getProducts,
+
+    assignInventoryToRider
 }

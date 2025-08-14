@@ -10,6 +10,9 @@ const carModelSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    image: {
+        type: String,
+    },
     brand: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Brand"

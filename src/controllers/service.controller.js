@@ -11,6 +11,7 @@ import { generateServiceId } from "../utils/generateId.js";
 const createService = asyncHandler(async (req, res) => {
     const {
         name,
+        images,
         active
     } = req.body;
 
@@ -27,6 +28,7 @@ const createService = asyncHandler(async (req, res) => {
     const newService = await Service.create({
         service_id,
         name,
+        images,
         active
     });
 
@@ -96,6 +98,7 @@ const getServices = asyncHandler(async (req, res) => {
 const createSubscription = asyncHandler(async (req, res) => {
     const {
         name,
+        icon,
         active
     } = req.body;
 
@@ -112,6 +115,7 @@ const createSubscription = asyncHandler(async (req, res) => {
     const newSubscription = await Subscription.create({
         // service_id,
         name,
+        icon,
         active
     });
 
@@ -299,7 +303,7 @@ const getSubscriptions = asyncHandler(async (req, res) => {
 
     const allSubscriptions = await Subscription.find({
         active: true
-    });
+    }).populate("services");
 
     if (!allSubscriptions) {
         throw new ApiError(500, "Could not get subscriptions");

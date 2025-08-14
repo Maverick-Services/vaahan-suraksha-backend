@@ -53,6 +53,9 @@ const subscriptionSchema = new mongoose.Schema({
         type: Date,
         // required: [true, "Service limit request is required"]
     },
+    icon: {
+        type: String,
+    },
     pricing: {
         type: Map,
         of: pricingSchema,
