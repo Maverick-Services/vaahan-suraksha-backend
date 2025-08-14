@@ -1,3 +1,5 @@
+import { Brand } from "../models/brand.model.js";
+import { CarModel } from "../models/car_model.model.js";
 import { Product } from "../models/product.model.js";
 import { Service } from "../models/service.model.js";
 import { Subscription } from "../models/Subscription.model.js";
@@ -118,6 +120,80 @@ const getPaginatedMembers = asyncHandler(async (req, res) => {
                 hasPrevPage: page > 1,
             },
         }, "Members fetched successfully")
+    );
+});
+
+const getPaginatedBrands = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 10 } = req.query;
+
+    const parsedPage = Math.max(1, parseInt(page));
+    const parsedLimit = Math.min(100, Math.max(1, parseInt(limit)));
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    //   const filter = { active: true };
+    const filter = {};
+
+    const [brands, totalCount] = await Promise.all([
+        Brand.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parsedLimit)
+            .lean()
+            .populate("car_models"),
+        Brand.countDocuments(filter),
+    ]);
+
+    const totalPages = Math.ceil(totalCount / parsedLimit);
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            brands,
+            totalCount,
+            pagination: {
+                page: parsedPage,
+                limit: parsedLimit,
+                totalPages,
+                hasNextPage: parsedPage < totalPages,
+                hasPrevPage: parsedPage > 1,
+            },
+        }, "Brands fetched successfully")
+    );
+});
+
+const getPaginatedCarModels = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 10 } = req.query;
+
+    const parsedPage = Math.max(1, parseInt(page));
+    const parsedLimit = Math.min(100, Math.max(1, parseInt(limit)));
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    //   const filter = { active: true };
+    const filter = {};
+
+    const [carModels, totalCount] = await Promise.all([
+        CarModel.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parsedLimit)
+            .lean()
+            .populate("brand products"),
+        CarModel.countDocuments(filter),
+    ]);
+
+    const totalPages = Math.ceil(totalCount / parsedLimit);
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            carModels,
+            totalCount,
+            pagination: {
+                page: parsedPage,
+                limit: parsedLimit,
+                totalPages,
+                hasNextPage: parsedPage < totalPages,
+                hasPrevPage: parsedPage > 1,
+            },
+        }, "Car Models fetched successfully")
     );
 });
 
@@ -292,6 +368,8 @@ const getPaginatedProducts = asyncHandler(async (req, res) => {
 export {
     getPaginatedUsers,
     getPaginatedMembers,
+    getPaginatedBrands,
+    getPaginatedCarModels,
     getPaginatedServices,
     getPaginatedSubscriptions,
     getPaginatedProducts

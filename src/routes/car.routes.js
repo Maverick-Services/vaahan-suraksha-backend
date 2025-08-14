@@ -8,13 +8,14 @@ import {
     getCarModelsByBrand,
     updateCar
 } from "../controllers/car.controller.js";
+import { getPaginatedBrands, getPaginatedCarModels } from "../controllers/pagination.controller.js";
 
 const router = Router()
 
 // Brand Management Routes
 router.route("/brand/create").post(verifyJWT, createBrand);
 // router.route("/update").put(verifyJWT, updateService);
-// router.route("/paginated/").get(verifyJWT, getPaginatedServices);
+router.route("/brand/paginated/").get(verifyJWT, getPaginatedBrands);
 router.route("/brand/").get(getBrands);
 
 // Model Management Routes
@@ -22,7 +23,7 @@ router.route("/model/create").post(verifyJWT, createCarModel);
 // router.route("/subscription/update").put(verifyJWT, updateSubscription);
 // router.route("/subscription/addService").post(verifyJWT, addServiceInSubscription);
 // router.route("/subscription/bulkUpdateServices").post(verifyJWT, bulkServicesUpdateInSubscription);
-// router.route("/subscription/paginated/").get(verifyJWT, getPaginatedSubscriptions);
+router.route("/model/paginated/").get(verifyJWT, getPaginatedCarModels);
 router.route("/model/:brandId").get(getCarModelsByBrand);
 
 // User Car Management Routes
