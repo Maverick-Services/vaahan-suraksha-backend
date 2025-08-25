@@ -86,6 +86,10 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "RiderInventory"
     },
+    orders: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Order"
+    }],
     members: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"

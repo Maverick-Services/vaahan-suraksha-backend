@@ -5,9 +5,13 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { generateServiceId } from "../utils/generateId.js";
+import Razorpay from "razorpay";
+import { Order } from "../models/order.model.js";
+import crypto from 'crypto';
+import { v4 as uuidv4 } from "uuid";
+import { ROLES } from "../constants.js";
 
 // Service Management Controllers
-
 const createService = asyncHandler(async (req, res) => {
     const {
         name,
@@ -94,7 +98,6 @@ const getServices = asyncHandler(async (req, res) => {
 });
 
 // Subscription Management Controllers
-
 const createSubscription = asyncHandler(async (req, res) => {
     const {
         name,
@@ -315,6 +318,140 @@ const getSubscriptions = asyncHandler(async (req, res) => {
 
 });
 
+
+const razorpayConfig = () => {
+    const razorpay = new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_KEY_SECRET
+    });
+    return razorpay;
+}
+
+const createSubscriptionOrder = asyncHandler(async (req, res) => {
+
+    let {
+        amount,
+        planId,
+        serviceIds,
+        pricingType
+    } = req?.body;
+
+    const razorpay = await razorpayConfig();
+
+    if (req?.user?.role != ROLES.USER) {
+        throw new ApiError(401, "Only customers can book subscription.");
+    }
+
+    if (!planId || !pricingType || amount == undefined || amount < 0 || !serviceIds || !serviceIds?.length) {
+        throw new ApiError(404, "Valid details not found to create Order.");
+    }
+
+    //Check for valid subscription Id
+    if (!mongoose.Types.ObjectId.isValid(planId)) {
+        throw new ApiError(404, "Valid Subscription Id required.");
+    }
+
+    const foundSubscription = await Subscription.findById(planId);
+    if (!foundSubscription) {
+        throw new ApiError(500, "Subscription not found");
+    }
+
+    //check if service exist in subscription
+    for (let serviceId of serviceIds) {
+        if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+            throw new ApiError(404, "Valid Service Id required.");
+        }
+        if (!foundSubscription?.services?.some(sr => sr?.toString() == serviceId?.toString())) {
+            throw new ApiError(404, `${serviceId} not found in subscription`);
+        }
+    }
+
+    // 1️⃣ Create Razorpay Order
+    const razorpayOrder = await razorpay.orders.create({
+        amount: amount * 100, // in paise
+        currency: 'INR',
+        receipt: `rcpt_${uuidv4().split('-')[0]}`,
+        payment_capture: 1
+    });
+
+    const newOrder = await Order.create({
+        amount,
+        subscriptionId: planId,
+        type: pricingType == "oneTimePrice" ? "oneTime" : "monthly",
+        services: serviceIds,
+        userId: req?.user?._id
+    });
+
+    return res.status(201).json(
+        new ApiResponse(201, {
+            razorpayOrderId: razorpayOrder.id,
+            amount: razorpayOrder.amount,
+            currency: razorpayOrder.currency,
+            key: process.env.RAZORPAY_KEY_ID,
+            newOrderId: newOrder._id,
+            // user: updatedUser
+        }, 'Razorpay Order Created')
+    );
+});
+
+const verifySubscriptionOrderPayment = asyncHandler(async (req, res) => {
+    const {
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+        orderId
+    } = req.body;
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !orderId) {
+        throw new ApiError(400, 'Payment verification details missing.');
+    }
+
+    // 1️⃣ Verify Signature
+    const generatedSignature = crypto
+        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest('hex');
+
+    const isValid = generatedSignature === razorpay_signature;
+
+    const order = await Order.findById(orderId);
+    if (!order) throw new ApiError(404, 'Order not found.');
+
+    let updatedUser = null;
+    if (isValid) {
+        order.paymentStatus = "Paid";
+        order.razorpayOrderId = razorpay_order_id;
+        order.razorpayPaymentId = razorpay_payment_id;
+        await Order.save();
+
+        // Add Order in User Order
+        updatedUser = await User.findByIdAndUpdate(
+            order.userId,
+            { $push: { orders: order._id } },
+            { new: true, session }
+        ).select('-password -refreshToken');
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, { order, user: updatedUser }, "Payment Verified. Order Completed")
+    );
+});
+
+const getMyOrders = asyncHandler(async (req, res) => {
+    const myOrders = await Order.find({
+        userId: req?.user?._id
+    })
+        .populate("subscriptionId services");
+
+    if (!myOrders) {
+        throw new ApiError(500, "Could not get orders");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, myOrders, "Orders fetched successfully")
+    )
+});
+
 export {
     createService,
     updateService,
@@ -323,5 +460,8 @@ export {
     updateSubscription,
     getSubscriptions,
     addServiceInSubscription,
-    bulkServicesUpdateInSubscription
+    bulkServicesUpdateInSubscription,
+    createSubscriptionOrder,
+    verifySubscriptionOrderPayment,
+    getMyOrders
 }
