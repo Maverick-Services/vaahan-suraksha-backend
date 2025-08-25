@@ -319,6 +319,7 @@ const getSubscriptions = asyncHandler(async (req, res) => {
 });
 
 
+// RazorPay Order Management
 const razorpayConfig = () => {
     const razorpay = new Razorpay({
         key_id: process.env.RAZORPAY_KEY_ID,

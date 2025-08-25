@@ -3,8 +3,8 @@ import mongoose from "mongoose";
 const brandSchema = new mongoose.Schema({
     name: {
         type: String,
-        required: [true, "Service name is required"],
-        unique: [true, "Service name already exist"]
+        required: [true, "Brand name is required"],
+        unique: [true, "Brand name already exist"]
     },
     active: {
         type: Boolean,
