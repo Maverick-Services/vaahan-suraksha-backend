@@ -430,7 +430,7 @@ const verifySubscriptionOrderPayment = asyncHandler(async (req, res) => {
         updatedUser = await User.findByIdAndUpdate(
             order.userId,
             { $push: { orders: order._id } },
-            { new: true, session }
+            { new: true }
         ).select('-password -refreshToken');
     }
 
