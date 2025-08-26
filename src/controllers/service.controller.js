@@ -10,6 +10,7 @@ import { Order } from "../models/order.model.js";
 import crypto from 'crypto';
 import { v4 as uuidv4 } from "uuid";
 import { ROLES } from "../constants.js";
+import { User } from "../models/user.model.js";
 
 // Service Management Controllers
 const createService = asyncHandler(async (req, res) => {
@@ -423,7 +424,7 @@ const verifySubscriptionOrderPayment = asyncHandler(async (req, res) => {
         order.paymentStatus = "Paid";
         order.razorpayOrderId = razorpay_order_id;
         order.razorpayPaymentId = razorpay_payment_id;
-        await Order.save();
+        await order.save();
 
         // Add Order in User Order
         updatedUser = await User.findByIdAndUpdate(
