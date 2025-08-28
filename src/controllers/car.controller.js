@@ -254,7 +254,9 @@ const updateCar = asyncHandler(async (req, res) => {
     const updatedCar = await Car.findByIdAndUpdate(
         carId,
         {
-            ...updates
+            ...updates,
+            brand: updates?.brandId || foundCar?.brand,
+            car_model: updates?.carModelId || foundCar?.car_model
         },
         { new: true }
     );
