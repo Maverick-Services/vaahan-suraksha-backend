@@ -12,6 +12,15 @@ import { v4 as uuidv4 } from "uuid";
 import { ROLES } from "../constants.js";
 import { User } from "../models/user.model.js";
 
+// Razorpy Config
+const razorpayConfig = () => {
+    const razorpay = new Razorpay({
+        key_id: process.env.RAZORPAY_KEY_ID,
+        key_secret: process.env.RAZORPAY_KEY_SECRET
+    });
+    return razorpay;
+}
+
 // Service Management Controllers
 const createService = asyncHandler(async (req, res) => {
     const {
@@ -319,20 +328,193 @@ const getSubscriptions = asyncHandler(async (req, res) => {
 
 });
 
+//Subscription Purchase Management
+const purchaseB2CUserSubscription = asyncHandler(async (req, res) => {
 
-// RazorPay Order Management
-const razorpayConfig = () => {
-    const razorpay = new Razorpay({
-        key_id: process.env.RAZORPAY_KEY_ID,
-        key_secret: process.env.RAZORPAY_KEY_SECRET
+    let {
+        planId,
+        serviceIds,
+        price,
+        limit,
+    } = req?.body;
+
+    const razorpay = await razorpayConfig();
+
+    if (req?.user?.role != ROLES.USER) {
+        throw new ApiError(401, "Only customers can purchase subscription.");
+    }
+
+    if (req?.user?.isSubscribed) {
+        throw new ApiError(401, "User already subscribed");
+    }
+
+    if (!planId || !price || !limit || limit < 0 || !serviceIds || !serviceIds?.length) {
+        throw new ApiError(404, "Valid details not found to purchase subscription.");
+    }
+
+    //Check for valid subscription Id
+    if (!mongoose.Types.ObjectId.isValid(planId)) {
+        throw new ApiError(404, "Valid Subscription Id required.");
+    }
+
+    const foundSubscription = await Subscription.findById(planId);
+    if (!foundSubscription) {
+        throw new ApiError(500, "Subscription not found");
+    }
+
+    //check if service exist in subscription
+    for (let serviceId of serviceIds) {
+        if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+            throw new ApiError(404, "Valid Service Id required.");
+        }
+        if (!foundSubscription?.services?.some(sr => sr?.toString() == serviceId?.toString())) {
+            throw new ApiError(404, `${serviceId} not found in subscription`);
+        }
+    }
+
+    // 1️⃣ Create Razorpay Order
+    const razorpayOrder = await razorpay.orders.create({
+        amount: price * 100, // in paise
+        currency: 'INR',
+        receipt: `rcpt_${uuidv4().split('-')[0]}`,
+        payment_capture: 1
     });
-    return razorpay;
-}
 
+    const currentPlan = {
+        subscriptionId: planId,
+        name: foundSubscription?.name,
+        serviceIds,
+        price,
+        limit
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+        req?.user?._id,
+        {
+            currentPlan
+        },
+        { new: true }
+    ).select('-password -refreshToken');
+
+    return res.status(201).json(
+        new ApiResponse(201, {
+            razorpayOrderId: razorpayOrder.id,
+            amount: razorpayOrder.amount,
+            currency: razorpayOrder.currency,
+            key: process.env.RAZORPAY_KEY_ID,
+            user: updatedUser
+        }, 'Razorpay Order Created')
+    );
+});
+
+const verifyB2CSubscriptionPurchase = asyncHandler(async (req, res) => {
+    const {
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+        userId
+    } = req.body;
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature ||
+        !userId || !mongoose.Types.ObjectId.isValid(userId)) {
+        throw new ApiError(400, 'Payment verification details missing.');
+    }
+
+    // 1️⃣ Verify Signature
+    const generatedSignature = crypto
+        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest('hex');
+
+    const isValid = generatedSignature === razorpay_signature;
+
+    let updatedUser = await User.findById(userId);
+    if (isValid) {
+
+        const currentPlan = {
+            ...updatedUser?.currentPlan,
+            isVerified: true,
+            startDate: new Date(),
+            //TODO: next billing date to be added
+        }
+
+        //TODO: biling history te be updates
+
+        // Add Order in User Order
+        updatedUser = await User.findByIdAndUpdate(
+            userId,
+            {
+                currentPlan,
+                isSubscribed: true
+            },
+            { new: true }
+        ).select('-password -refreshToken');
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, { user: updatedUser }, "Payment Verified. Subscription purchased successfully")
+    );
+});
+
+// ******************** ORDER MANAGEMENT ************************
+
+//Common Order Functions
+const getMyOrders = asyncHandler(async (req, res) => {
+    const myOrders = await Order.find({
+        userId: req?.user?._id
+    })
+        .populate("subscriptionId services");
+
+    if (!myOrders) {
+        throw new ApiError(500, "Could not get orders");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, myOrders, "Orders fetched successfully")
+    )
+});
+
+const updateSubscriptionOrder = asyncHandler(async (req, res) => {
+
+    const updates = req.body;
+    const { orderId } = req?.body;
+
+    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+        throw new ApiError(404, "Valid Order Id not found.");
+    }
+
+    const foundOrder = await Order.findById(orderId);
+    if (!foundOrder) {
+        throw new ApiError(404, "Order not found.");
+    }
+
+    const updatedOrder = await Order.findByIdAndUpdate(
+        orderId,
+        {
+            ...updates
+        }
+    )
+        .populate('subscriptionId services userId mechanic')
+        .populate({
+            path: "items.productId",
+            model: "Product",
+            select: "name images sellingPrice"
+        })
+        .exec();
+
+    return res.status(201).json(
+        new ApiResponse(200, updatedOrder, 'Order Updated Successfully')
+    );
+});
+
+// One Time Subscription Order Management
 const createSubscriptionOrder = asyncHandler(async (req, res) => {
 
     let {
         amount,
+        name, phoneNo,
+        scheduledOn,
+        location,
         planId,
         serviceIds,
         pricingType
@@ -346,6 +528,10 @@ const createSubscriptionOrder = asyncHandler(async (req, res) => {
 
     if (!planId || !pricingType || amount == undefined || amount < 0 || !serviceIds || !serviceIds?.length) {
         throw new ApiError(404, "Valid details not found to create Order.");
+    }
+
+    if (!name || !phoneNo || !scheduledOn || !location) {
+        throw new ApiError(404, "Customer details not found.");
     }
 
     //Check for valid subscription Id
@@ -377,10 +563,16 @@ const createSubscriptionOrder = asyncHandler(async (req, res) => {
     });
 
     const newOrder = await Order.create({
-        amount,
+        serviceCharge: amount,
+        paidAmount: amount,
+        orderAmount: amount,
         subscriptionId: planId,
+        subscriptionName: foundSubscription?.name,
         type: pricingType == "oneTimePrice" ? "oneTime" : "monthly",
         services: serviceIds,
+        name, phoneNo,
+        scheduledOn,
+        location,
         userId: req?.user?._id
     });
 
@@ -439,21 +631,6 @@ const verifySubscriptionOrderPayment = asyncHandler(async (req, res) => {
     );
 });
 
-const getMyOrders = asyncHandler(async (req, res) => {
-    const myOrders = await Order.find({
-        userId: req?.user?._id
-    })
-        .populate("subscriptionId services");
-
-    if (!myOrders) {
-        throw new ApiError(500, "Could not get orders");
-    }
-
-    return res.status(200).json(
-        new ApiResponse(200, myOrders, "Orders fetched successfully")
-    )
-});
-
 export {
     createService,
     updateService,
@@ -463,7 +640,10 @@ export {
     getSubscriptions,
     addServiceInSubscription,
     bulkServicesUpdateInSubscription,
+    purchaseB2CUserSubscription,
+    verifyB2CSubscriptionPurchase,
     createSubscriptionOrder,
     verifySubscriptionOrderPayment,
+    updateSubscriptionOrder,
     getMyOrders
 }

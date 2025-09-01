@@ -1,9 +1,24 @@
 import mongoose from "mongoose";
+import { itemsSchema } from "./product.model.js";
 
 const orderSchema = new mongoose.Schema({
-    amount: {
+    paidAmount: {
         type: Number,
         required: true,
+        default: 0
+    },
+    serviceCharge: {
+        type: Number,
+        // required: true,
+        default: 0
+    },
+    orderAmount: {
+        type: Number,
+        // required: true,
+        default: 0
+    },
+    sparePartsCharge: {
+        type: Number,
         default: 0
     },
     type: {
@@ -12,6 +27,23 @@ const orderSchema = new mongoose.Schema({
         default: "oneTime"
     },
 
+    /****************  ORDER TRACKING  *****************/
+    status: {
+        type: String,
+        enum: ["Pending", "Completed", "Accepted", "Rejected", "In Progress"],
+        default: "Pending"
+    },
+    scheduledOn: {
+        type: Date
+    },
+    location: String,
+    name: String,
+    phoneNo: String,
+    mechanic: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+    },
+    spareParts: [itemsSchema],
 
     /****************  PAYMENT FIELDS  *****************/
     razorpayOrderId: String,
@@ -25,6 +57,9 @@ const orderSchema = new mongoose.Schema({
     subscriptionId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Subscription"
+    },
+    subscriptionName: {
+        type: String,
     },
     services: [{
         type: mongoose.Schema.Types.ObjectId,

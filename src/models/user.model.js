@@ -1,20 +1,35 @@
 import mongoose from "mongoose";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { itemsSchema } from "./product.model.js";
 
-const subscriptionSchema = {
+const billingSchema = new mongoose.Schema({
+    subscriptionId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Subscription"
+    },
+    billingDate: {
+        type: Date,
+        // required: [true, "Service limit request is required"]
+    },
+    billingAmount: {
+        type: Number,
+        // required: [true, "Price is required"]
+    },
+});
+
+const subscriptionSchema = new mongoose.Schema({
+    isVerified: {
+        type: Boolean,
+        default: false,
+    },
     name: {
         type: String,
         required: [true, "Subscription name is required"],
-        unique: [true, "Subscription name already exist"]
     },
-    oneTimePrice: {
+    price: {
         type: Number,
-        required: [true, "One Time price is required"]
-    },
-    monthlyPrice: {
-        type: Number,
-        required: [true, "Monthly price is required"]
+        required: [true, "Price is required"]
     },
     limit: {
         type: Number,
@@ -24,15 +39,22 @@ const subscriptionSchema = {
         type: Date,
         // required: [true, "Service limit request is required"]
     },
-    endDate: {
+    nextBillingDate: {
         type: Date,
         // required: [true, "Service limit request is required"]
+    },
+    upgradeDate: {
+        type: Date,
+    },
+    subscriptionId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Subscription"
     },
     services: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Service"
     }],
-}
+})
 
 const userSchema = new mongoose.Schema({
     user_id: {
@@ -82,10 +104,7 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Car"
     },
-    inventory: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "RiderInventory"
-    },
+    inventory: [itemsSchema],
     orders: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Order"
@@ -94,12 +113,9 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"
     }],
-    // currentPlan: {
-    //     type: Object,
-    //     of: subscriptionSchema,
-    //     default: {}
-    // },
-    // planHistory: [subscriptionSchema],
+    currentPlan: subscriptionSchema,
+    planHistory: [subscriptionSchema],
+    billingHistory: [billingSchema],
     services: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Service"
