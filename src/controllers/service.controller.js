@@ -383,7 +383,7 @@ const purchaseB2CUserSubscription = asyncHandler(async (req, res) => {
     const currentPlan = {
         subscriptionId: planId,
         name: foundSubscription?.name,
-        serviceIds,
+        services: serviceIds,
         price,
         limit
     }
@@ -431,6 +431,7 @@ const verifyB2CSubscriptionPurchase = asyncHandler(async (req, res) => {
     let updatedUser = await User.findById(userId);
     if (isValid) {
 
+        // Update Start Date and Verify the current plan of user
         const currentPlan = {
             ...updatedUser?.currentPlan,
             isVerified: true,
@@ -440,7 +441,7 @@ const verifyB2CSubscriptionPurchase = asyncHandler(async (req, res) => {
 
         //TODO: biling history te be updates
 
-        // Add Order in User Order
+        // Mark User Subscribed
         updatedUser = await User.findByIdAndUpdate(
             userId,
             {
@@ -448,11 +449,25 @@ const verifyB2CSubscriptionPurchase = asyncHandler(async (req, res) => {
                 isSubscribed: true
             },
             { new: true }
-        ).select('-password -refreshToken');
+        ).select('-password -refreshToken')
+            .populate('currentPlan.services');
     }
 
+    //Add user in subscription's subscribed member array
+    const updatedSubscription = await Subscription.findByIdAndUpdate(
+        updatedUser?.currentPlan?.subscriptionId,
+        {
+            $push: {
+                currentSubscribers: updatedUser?._id
+            }
+        }
+    ).populate('currentSubscribers');
+
     return res.status(200).json(
-        new ApiResponse(200, { user: updatedUser }, "Payment Verified. Subscription purchased successfully")
+        new ApiResponse(200, {
+            user: updatedUser,
+            subscription: updatedSubscription
+        }, "Payment Verified. Subscription purchased successfully")
     );
 });
 
