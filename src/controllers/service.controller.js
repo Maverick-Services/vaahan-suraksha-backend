@@ -439,13 +439,16 @@ const verifyB2CSubscriptionPurchase = asyncHandler(async (req, res) => {
             //TODO: next billing date to be added
         }
 
+        console.log(currentPlan);
+
         //TODO: biling history te be updates
 
         // Mark User Subscribed
         updatedUser = await User.findByIdAndUpdate(
             userId,
             {
-                currentPlan,
+                "currentPlan.isVerified": true,
+                "currentPlan.startDate": Date.now(),
                 isSubscribed: true
             },
             { new: true }
