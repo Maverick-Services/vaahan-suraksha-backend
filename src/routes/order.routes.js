@@ -9,6 +9,7 @@ import {
     createOneTimeOrder,
     verifyOneTimeOrderPayment,
     createSubscribedUserOrder,
+    acceptOrderByMechanic,
 } from "../controllers/order.controller.js";
 
 const router = Router()
@@ -19,6 +20,7 @@ router.route("/oneTime/create").post(verifyJWT, createSubscriptionOrder);
 router.route("/oneTime/verify").post(verifyJWT, verifySubscriptionOrderPayment);
 // router.route("/oneTime/create").post(verifyJWT, createOneTimeOrder);
 // router.route("/oneTime/verify").post(verifyJWT, verifyOneTimeOrderPayment);
+router.route("/accept").post(verifyJWT, acceptOrderByMechanic);
 router.route("/my").get(verifyJWT, getMyOrders);
 
 

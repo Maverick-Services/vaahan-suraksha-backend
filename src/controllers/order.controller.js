@@ -262,8 +262,7 @@ const createSubscribedUserOrder = asyncHandler(async (req, res) => {
     );
 });
 
-
-const acceptOrderByVendor = asyncHandler(async (req, res) => {
+const acceptOrderByMechanic = asyncHandler(async (req, res) => {
     const user = req?.user;
     const { orderId } = req?.body;
 
@@ -314,7 +313,9 @@ const acceptOrderByVendor = asyncHandler(async (req, res) => {
     const updatedUser = await User.findByIdAndUpdate(
         req?.user?._id,
         {
-            $push: updatedOrder?._id
+            $push: {
+                orders: updatedOrder?._id
+            }
         },
         { new: true }
     ).select('-password -refreshToken');
@@ -336,5 +337,5 @@ export {
     createOneTimeOrder,
     verifyOneTimeOrderPayment,
     createSubscribedUserOrder,
-    acceptOrderByVendor,
+    acceptOrderByMechanic,
 }

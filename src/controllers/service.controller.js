@@ -482,7 +482,7 @@ const getMyOrders = asyncHandler(async (req, res) => {
         userId: req?.user?._id,
         paymentStatus: "Paid"
     })
-        .populate("subscriptionId services");
+        .populate("subscriptionId services mechanic");
 
     if (!myOrders) {
         throw new ApiError(500, "Could not get orders");
