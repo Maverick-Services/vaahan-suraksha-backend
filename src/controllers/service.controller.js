@@ -479,7 +479,8 @@ const verifyB2CSubscriptionPurchase = asyncHandler(async (req, res) => {
 //Common Order Functions
 const getMyOrders = asyncHandler(async (req, res) => {
     const myOrders = await Order.find({
-        userId: req?.user?._id
+        userId: req?.user?._id,
+        paymentStatus: "Paid"
     })
         .populate("subscriptionId services");
 

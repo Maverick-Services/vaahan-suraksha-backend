@@ -5,7 +5,11 @@ import {
     getMyOrders,
     verifySubscriptionOrderPayment
 } from "../controllers/service.controller.js";
-import { createSubscribedUserOrder } from "../controllers/order.controller.js";
+import {
+    createOneTimeOrder,
+    verifyOneTimeOrderPayment,
+    createSubscribedUserOrder,
+} from "../controllers/order.controller.js";
 
 const router = Router()
 
@@ -13,6 +17,8 @@ const router = Router()
 router.route("/monthly/create").post(verifyJWT, createSubscribedUserOrder);
 router.route("/oneTime/create").post(verifyJWT, createSubscriptionOrder);
 router.route("/oneTime/verify").post(verifyJWT, verifySubscriptionOrderPayment);
+// router.route("/oneTime/create").post(verifyJWT, createOneTimeOrder);
+// router.route("/oneTime/verify").post(verifyJWT, verifyOneTimeOrderPayment);
 router.route("/my").get(verifyJWT, getMyOrders);
 
 
