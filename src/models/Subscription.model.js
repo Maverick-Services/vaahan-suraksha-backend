@@ -6,14 +6,9 @@ const pricingSchema = new mongoose.Schema({
         enum: ["b2b", "b2c"],
         // required: [true, "Customer Type is required"]
     },
-    // userLimit: {
-    //     type: Number,
-    //     required: [true, "User limit is required"],
-    //     // unique: [true, "User limit must be unique"]
-    // },
     oneTimePrice: {
         type: Number,
-        required: [true, "One Time price is required"]
+        // required: [true, "One Time price is required"]
     },
     monthlyPrice: {
         type: Number,

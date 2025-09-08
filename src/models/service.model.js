@@ -21,6 +21,10 @@ const serviceSchema = new mongoose.Schema({
     packages: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Subscription"
+    }],
+    plans: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "OneTime"
     }]
 });
 

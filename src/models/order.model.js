@@ -26,11 +26,21 @@ const orderSchema = new mongoose.Schema({
         enum: ["oneTime", "monthly"],
         default: "oneTime"
     },
+    carType: {
+        type: String,
+        // enum: ["oneTime", "monthly"],
+        // default: "oneTime"
+    },
 
     /****************  ORDER TRACKING  *****************/
     status: {
         type: String,
         enum: ["Pending", "Completed", "Accepted", "Rejected", "In Progress"],
+        default: "Pending"
+    },
+    trackStatus: {
+        type: String,
+        // enum: ["Pending", "Completed", "Accepted", "Rejected", "In Progress"],
         default: "Pending"
     },
     scheduledOn: {
@@ -54,6 +64,10 @@ const orderSchema = new mongoose.Schema({
         default: "Pending"
     },
 
+    oneTimePlan: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "OneTime"
+    },
     subscriptionId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Subscription"

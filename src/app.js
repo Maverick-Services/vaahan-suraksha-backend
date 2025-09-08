@@ -23,6 +23,7 @@ app.use(cookieParser())
 import userRoutes from './routes/user.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import serviceRoutes from './routes/service.routes.js';
+import oneTimePlanRoutes from './routes/one_time_plan.routes.js';
 import carRoutes from './routes/car.routes.js';
 import inventoryRoutes from './routes/inventory.routes.js';
 import orderRoutes from './routes/order.routes.js';
@@ -30,6 +31,7 @@ import orderRoutes from './routes/order.routes.js';
 app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/service', serviceRoutes);
+app.use('/api/v1/oneTime', oneTimePlanRoutes);
 app.use('/api/v1/car', carRoutes);
 app.use('/api/v1/inventory', inventoryRoutes);
 app.use('/api/v1/order', orderRoutes);

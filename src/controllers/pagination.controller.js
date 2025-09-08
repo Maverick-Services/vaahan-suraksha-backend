@@ -1,5 +1,6 @@
 import { Brand } from "../models/brand.model.js";
 import { CarModel } from "../models/car_model.model.js";
+import { OneTime } from "../models/oneTimePlan.model.js";
 import { Product } from "../models/product.model.js";
 import { Service } from "../models/service.model.js";
 import { Subscription } from "../models/Subscription.model.js";
@@ -268,6 +269,41 @@ const getPaginatedSubscriptions = asyncHandler(async (req, res) => {
     );
 });
 
+const getPaginatedOneTimePlans = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 10 } = req.query;
+
+    const parsedPage = Math.max(1, parseInt(page));
+    const parsedLimit = Math.min(100, Math.max(1, parseInt(limit)));
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const filter = { active: true };
+
+    const [plans, totalCount] = await Promise.all([
+        OneTime.find(filter)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parsedLimit)
+            .lean(),
+        OneTime.countDocuments(filter),
+    ]);
+
+    const totalPages = Math.ceil(totalCount / parsedLimit);
+
+    return res.status(200).json(
+        new ApiResponse(200, {
+            plans,
+            totalCount,
+            pagination: {
+                page: parsedPage,
+                limit: parsedLimit,
+                totalPages,
+                hasNextPage: parsedPage < totalPages,
+                hasPrevPage: parsedPage > 1,
+            },
+        }, "Plans fetched successfully")
+    );
+});
+
 const getPaginatedProducts = asyncHandler(async (req, res) => {
     const {
         page = 1,
@@ -371,6 +407,7 @@ export {
     getPaginatedBrands,
     getPaginatedCarModels,
     getPaginatedServices,
+    getPaginatedOneTimePlans,
     getPaginatedSubscriptions,
     getPaginatedProducts
 };

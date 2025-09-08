@@ -16,7 +16,7 @@ const billingSchema = new mongoose.Schema({
         type: Number,
         // required: [true, "Price is required"]
     },
-});
+}, { _id: false });
 
 const subscriptionSchema = new mongoose.Schema({
     isVerified: {
@@ -54,7 +54,7 @@ const subscriptionSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "Service"
     }],
-})
+}, { _id: false })
 
 const userSchema = new mongoose.Schema({
     user_id: {

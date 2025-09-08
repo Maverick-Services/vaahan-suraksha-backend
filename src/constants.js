@@ -9,6 +9,15 @@ export const ROLES = {
     COMPANY: "company"
 }
 
+export const STATUS = {
+    PENDING: "Pending",
+    ACCEPTED: "Accepted",
+    COMPLETED: "Completed",
+    REJECTED: "Rejected",
+    SCHEDULED: "Scehdued",
+    IN_PROGRESS: "In Progress",
+}
+
 export const USER_TYPE = {
     B2B: "b2b",
     B2C: "b2c"
