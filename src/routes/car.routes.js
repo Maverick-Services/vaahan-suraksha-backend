@@ -6,7 +6,9 @@ import {
     getBrands,
     getCarByUser,
     getCarModelsByBrand,
-    updateCar
+    updateBrand,
+    updateCar,
+    updateCarModel
 } from "../controllers/car.controller.js";
 import { getPaginatedBrands, getPaginatedCarModels } from "../controllers/pagination.controller.js";
 
@@ -14,15 +16,13 @@ const router = Router()
 
 // Brand Management Routes
 router.route("/brand/create").post(verifyJWT, createBrand);
-// router.route("/update").put(verifyJWT, updateService);
+router.route("/brand/update").put(verifyJWT, updateBrand);
 router.route("/brand/paginated/").get(verifyJWT, getPaginatedBrands);
 router.route("/brand/").get(getBrands);
 
 // Model Management Routes
 router.route("/model/create").post(verifyJWT, createCarModel);
-// router.route("/subscription/update").put(verifyJWT, updateSubscription);
-// router.route("/subscription/addService").post(verifyJWT, addServiceInSubscription);
-// router.route("/subscription/bulkUpdateServices").post(verifyJWT, bulkServicesUpdateInSubscription);
+router.route("/model/update").put(verifyJWT, updateCarModel);
 router.route("/model/paginated/").get(verifyJWT, getPaginatedCarModels);
 router.route("/model/:brandId").get(getCarModelsByBrand);
 

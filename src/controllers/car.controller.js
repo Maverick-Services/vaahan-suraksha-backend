@@ -43,6 +43,41 @@ const createBrand = asyncHandler(async (req, res) => {
 
 });
 
+const updateBrand = asyncHandler(async (req, res) => {
+    const updates = req.body;
+    const { brandId } = req?.body;
+
+    if (!updates) {
+        throw new ApiError(404, "Nothing found to update in brand");
+    }
+
+    if (!brandId) {
+        throw new ApiError(500, "Could not find brand Id");
+    }
+
+    const foundBrand = await Brand.findById(brandId);
+    if (!foundBrand) {
+        throw new ApiError(500, "Brand not found");
+    }
+
+    const updatedBrand = await Brand.findByIdAndUpdate(
+        brandId,
+        {
+            ...updates,
+        },
+        { new: true }
+    );
+
+    if (!updatedBrand) {
+        throw new ApiError(500, "Could not update brand");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, updatedBrand, "brand updated successfully")
+    )
+
+});
+
 const getBrands = asyncHandler(async (req, res) => {
 
     const allBrands = await Brand.find({
@@ -108,6 +143,84 @@ const createCarModel = asyncHandler(async (req, res) => {
 
     return res.status(201).json(
         new ApiResponse(201, newCarModel, "Car Model created successfully")
+    )
+
+});
+
+const updateCarModel = asyncHandler(async (req, res) => {
+    const updates = req.body;
+    const { carModelId } = req?.body;
+
+    if (!updates) {
+        throw new ApiError(404, "Nothing found to update in car model");
+    }
+
+    // if (updates?.brandId && !updates?.carModelId) {
+    //     throw new ApiError(400, "Brand and Car Ids are required");
+    // }
+
+    if (!carModelId) {
+        throw new ApiError(500, "Could not find car model Id");
+    }
+
+    const foundCarModel = await CarModel.findById(carModelId);
+    if (!foundCarModel) {
+        throw new ApiError(500, "Car model not found");
+    }
+
+    if (updates?.brandId) {
+        const foundBrand = await Brand.findById(updates?.brandId);
+        if (!foundBrand) {
+            throw new ApiError(500, "Brand does not exist");
+        }
+
+        const foundCarModel = await CarModel.findById(updates?.carModelId);
+        if (!foundCarModel) {
+            throw new ApiError(500, "Car Model does not exist");
+        }
+
+        if (foundCarModel?.brand?.toString() != foundBrand?._id?.toString()) {
+
+            const updatedOldBrand = await Brand.findByIdAndUpdate(
+                foundCarModel?.brand,
+                {
+                    $pull: {
+                        car_models: foundCarModel?._id
+                    }
+                },
+                { new: true }
+            )
+            console.log("Old Brand:", updatedOldBrand);
+
+            const updatedNewBrand = await Brand.findByIdAndUpdate(
+                foundBrand?._id,
+                {
+                    $push: {
+                        car_models: foundCarModel?._id
+                    }
+                },
+                { new: true }
+            )
+            console.log("New Brand:", updatedNewBrand);
+            // throw new ApiError(404, "Car model not found in brand");
+        }
+    }
+
+    const updatedCarModel = await CarModel.findByIdAndUpdate(
+        carModelId,
+        {
+            ...updates,
+            brand: updates?.brandId,
+        },
+        { new: true }
+    );
+
+    if (!updatedCarModel) {
+        throw new ApiError(500, "Could not update car model");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, updatedCarModel, "car model updated successfully")
     )
 
 });
@@ -329,8 +442,10 @@ const getCarByUser = asyncHandler(async (req, res) => {
 
 export {
     createBrand,
+    updateBrand,
     getBrands,
     createCarModel,
+    updateCarModel,
     getCarModelsByBrand,
     createCar,
     updateCar,
