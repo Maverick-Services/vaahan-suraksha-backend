@@ -6,7 +6,7 @@ import {
     createOneTimePlan,
     getPlans,
     updateOneTimePlan
-} from "../controllers/OneTimePlan.controller.js";
+} from "../controllers/oneTimePlan.controller.js";
 import { getPaginatedOneTimePlans } from "../controllers/pagination.controller.js";
 
 const router = Router()
