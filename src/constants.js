@@ -18,6 +18,11 @@ export const STATUS = {
     IN_PROGRESS: "In Progress",
 }
 
+export const ORDER_TYPES = {
+    ONE_TIME: "oneTime",
+    MONTHLY: "monthly"
+}
+
 export const USER_TYPE = {
     B2B: "b2b",
     B2C: "b2c"

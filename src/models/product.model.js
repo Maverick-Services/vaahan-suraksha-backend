@@ -19,7 +19,7 @@ export const itemsSchema = new mongoose.Schema({
     },
     price: {
         type: Number,
-        required: true
+        // required: true
     }
 }, { _id: false }, { timestamps: true });
 

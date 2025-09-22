@@ -27,6 +27,7 @@ import oneTimePlanRoutes from './routes/one_time_plan.routes.js';
 import carRoutes from './routes/car.routes.js';
 import inventoryRoutes from './routes/inventory.routes.js';
 import orderRoutes from './routes/order.routes.js';
+import { startOrderRejectScheduler } from "./scheduler/rejectOrderScheduler.js"
 
 app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/auth', authRoutes);
@@ -43,6 +44,7 @@ app.get('/', (req, res) => {
     });
 });
 
+startOrderRejectScheduler();
 
 // Global error handler
 app.use((err, req, res, next) => {

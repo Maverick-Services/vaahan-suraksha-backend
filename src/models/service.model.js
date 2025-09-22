@@ -26,6 +26,6 @@ const serviceSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "OneTime"
     }]
-});
+}, { timestamps: true });
 
 export const Service = mongoose.model("Service", serviceSchema);
