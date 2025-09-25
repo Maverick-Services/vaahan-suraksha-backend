@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { verifyJWT } from './../middlewares/auth.middlewares.js';
 import {
+    assignInventoryToRider,
     createProduct, getProducts, updateProduct,
     updateProductStock
 } from "../controllers/inventory.controller.js";
@@ -15,12 +16,7 @@ router.route("/product/stock/update").put(verifyJWT, updateProductStock);
 router.route("/product/paginated").get(verifyJWT, getPaginatedProducts);
 router.route("/product/").get(getProducts);
 
-// Model Management Routes
-// router.route("/model/create").post(verifyJWT, createCarModel);
-// router.route("/subscription/update").put(verifyJWT, updateSubscription);
-// router.route("/subscription/addService").post(verifyJWT, addServiceInSubscription);
-// router.route("/subscription/bulkUpdateServices").post(verifyJWT, bulkServicesUpdateInSubscription);
-// router.route("/subscription/paginated/").get(verifyJWT, getPaginatedSubscriptions);
-// router.route("/subscription/").get(getSubscriptions);
+// Rider Inventory Management
+router.route("/rider/assign").post(verifyJWT, assignInventoryToRider);
 
 export default router

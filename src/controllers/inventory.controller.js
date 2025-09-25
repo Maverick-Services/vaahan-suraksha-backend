@@ -6,8 +6,8 @@ import { Stock } from "../models/stock.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-import { RiderInventory } from "../models/rider_inventory.model.js";
 import { User } from "../models/user.model.js";
+import { ROLES } from "../constants.js";
 
 // Product Management Controllers
 const createProduct = asyncHandler(async (req, res) => {
@@ -189,7 +189,8 @@ const updateProductStock = asyncHandler(async (req, res) => {
     let {
         purchasePrice,
         quantity,
-        productId
+        productId,
+        vendor
     } = req.body;
 
 
@@ -227,7 +228,8 @@ const updateProductStock = asyncHandler(async (req, res) => {
     const newProductStock = await Stock.create({
         purchasePrice,
         quantity: parsedQuantity,
-        productId
+        productId,
+        vendor
     });
 
     if (!newProductStock) {
@@ -270,91 +272,114 @@ const getProducts = asyncHandler(async (req, res) => {
 
 });
 
-
-// Rider Invertory Management Controllers
 const assignInventoryToRider = asyncHandler(async (req, res) => {
     const session = await mongoose.startSession();
-
-    const {
-        riderId,
-        items
-    } = req.body;
+    const { riderId, items } = req.body;
 
     try {
 
+        if (req?.user?.role != ROLES.ADMIN) {
+            throw new ApiError(404, "Only admins can assign inventory");
+        }
+
+        // 1️⃣ Validate Rider
+        const rider = await User.findById(riderId);
+        if (!rider || rider.role != ROLES.RIDER) {
+            throw new ApiError(404, "Invalid rider ID or user is not a rider");
+        }
+
+        if (!items || !Array.isArray(items) || items.length == 0) {
+            throw new ApiError(400, "No items provided to assign");
+        }
+
+        // 2️⃣ Validate Products & Stock
+        let updatedItems = [];
+        for (let item of items) {
+            if (!item?.productId || !item?.quantity || item.quantity <= 0) {
+                throw new ApiError(400, "Invalid product or quantity");
+            }
+
+            const product = await Product.findById(item.productId);
+            if (!product) {
+                throw new ApiError(404, `Product not found with ID: ${item.productId}`);
+            }
+
+            if (product.totalStock < item.quantity) {
+                throw new ApiError(
+                    400,
+                    `${product.name} does not have sufficient stock. Available: ${product.totalStock}`
+                );
+            }
+
+            updatedItems.push({
+                productId: product._id,
+                name: product.name,
+                quantity: item.quantity,
+                price: product.sellingPrice,
+            });
+        }
+
+        // 3️⃣ Transaction: Deduct Stock First → Assign/Update Rider Inventory
         await session.withTransaction(async () => {
 
+            let newStocksArray = [];
 
-            //create items array to create a rider inventory
-            let updatedItems = [];
-            for (let item of items) {
+            // Deduct stock from each Product
+            for (let item of updatedItems) {
+                const foundProduct = await Product.findByIdAndUpdate(
+                    item.productId,
+                    { $inc: { totalStock: -item.quantity } },
+                    { session }
+                );
 
-                if (+item?.quantity <= 0) {
-                    throw new ApiError(404, `Quantity is not valid`);
+                // Create stock entry (for addition in mechanic)
+                const [newMechanicStock] = await Stock.create([{
+                    sellingPrice: foundProduct?.sellingPrice,
+                    quantity: item?.quantity,
+                    productId: item?.productId,
+                    mechanicName: rider?.name,
+                    mechanic: rider?._id
+                }],
+                    { session });
+
+                newStocksArray.push(newMechanicStock?._id);
+            }
+
+            // Update Rider inventory
+            for (let item of updatedItems) {
+                const existingItem = rider.inventory.find(
+                    inv => inv.productId.toString() == item.productId.toString()
+                );
+
+                if (existingItem) {
+                    // If already exists → increase quantity
+                    existingItem.quantity += item.quantity;
+                } else {
+                    // Otherwise push new item
+                    rider.inventory.push(item);
                 }
-                const foundProduct = await Product.findById(item?.productId);
-                if (foundProduct) {
-
-                    if (foundProduct?.totalStock < +item?.quantity) {
-                        throw new ApiError(404, `${foundProduct?.name} is not in sufficient quantity`);
-                    }
-
-                    //Add product in items array
-                    const obj = {
-                        productId: item?.productId,
-                        name: foundProduct?.name,
-                        quantity: item?.quantity,
-                        price: foundProduct?.sellingPrice
-                    }
-
-                    updatedItems.push(obj);
-
-                    //update the product stock
-                    // foundProduct?.totalStock = foundProduct?.totalStock - quantity;
-                    // await foundProduct.save();
-                }
             }
 
-            console.log("Inventory Items: ", updatedItems);
+            console.log("New Stock History:", newStocksArray);
+            rider.stock = [...rider?.stock, ...newStocksArray];
 
-            //create the inventory now
-            const newRiderInventory = await RiderInventory.create({
-                riderId,
-                items: updatedItems
-            });
+            await rider.save({ session });
+        });
 
-            if (!newRiderInventory) {
-                throw new ApiError(404, "Could not create rider inventory");
-            }
-
-            //assign the inventory to rider
-            const updatedRider = await User.findByIdAndUpdate(
-                riderId,
-                {
-                    inventory: newRiderInventory?._id
-                },
-                { new: true }
-            );
-            if (!updatedRider) {
-                throw new ApiError(404, "Could not assign inventory to rider");
-            }
-
-            // reduce the product stock of items that are added in rider inventory
-            for (let item of newRiderInventory?.items) {
-                let foundProduct = await Product.findById(item?.productId);
-                const updatedStock = foundProduct?.totalStock - item?.quantity;
-                foundProduct.totalStock = updatedStock;
-                await foundProduct.save();
-            }
-
+        // ✅ Success Response
+        res.status(200).json({
+            success: true,
+            message: "Inventory assigned to rider successfully",
+            inventory: rider.inventory,
+            stcokHistory: rider?.stock
         });
 
     } catch (error) {
-
+        console.error("Assign Inventory Error:", error);
+        throw new ApiError(500, error.message || "Failed to assign inventory");
     } finally {
         session.endSession();
     }
-
 });
 
 export {
@@ -362,6 +387,5 @@ export {
     updateProduct,
     updateProductStock,
     getProducts,
-
     assignInventoryToRider
 }

@@ -105,6 +105,10 @@ const userSchema = new mongoose.Schema({
         ref: "Car"
     },
     inventory: [itemsSchema],
+    stock: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Stock',
+    }],
     orders: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Order"

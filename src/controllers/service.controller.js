@@ -453,6 +453,7 @@ const verifyB2CSubscriptionPurchase = asyncHandler(async (req, res) => {
             },
             { new: true }
         ).select('-password -refreshToken')
+            .populate('car')
             .populate('currentPlan.services');
     }
 
@@ -475,23 +476,6 @@ const verifyB2CSubscriptionPurchase = asyncHandler(async (req, res) => {
 });
 
 // ******************** ORDER MANAGEMENT ************************
-
-//Common Order Functions
-const getMyOrders = asyncHandler(async (req, res) => {
-    const myOrders = await Order.find({
-        userId: req?.user?._id,
-        paymentStatus: "Paid"
-    })
-        .populate("subscriptionId services mechanic");
-
-    if (!myOrders) {
-        throw new ApiError(500, "Could not get orders");
-    }
-
-    return res.status(200).json(
-        new ApiResponse(200, myOrders, "Orders fetched successfully")
-    )
-});
 
 const updateSubscriptionOrder = asyncHandler(async (req, res) => {
 
@@ -663,6 +647,5 @@ export {
     verifyB2CSubscriptionPurchase,
     createSubscriptionOrder,
     verifySubscriptionOrderPayment,
-    updateSubscriptionOrder,
-    getMyOrders
+    updateSubscriptionOrder
 }

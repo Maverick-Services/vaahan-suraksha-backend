@@ -42,7 +42,7 @@ const productSchema = new mongoose.Schema({
     },
     name: {
         type: String,
-        required: [true, "Car name is required"],
+        required: [true, "name is required"],
         // unique: [true, "Service name already exist"]
     },
     active: {
