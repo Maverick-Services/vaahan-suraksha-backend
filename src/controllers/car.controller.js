@@ -99,6 +99,7 @@ const createCarModel = asyncHandler(async (req, res) => {
     const {
         brandId,
         name,
+        carType,
         image,
         active
     } = req.body;
@@ -119,6 +120,7 @@ const createCarModel = asyncHandler(async (req, res) => {
     const newCarModel = await CarModel.create({
         brand: brandId,
         name,
+        carType,
         image,
         active
     });
