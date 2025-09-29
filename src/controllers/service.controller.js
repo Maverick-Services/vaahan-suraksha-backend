@@ -635,13 +635,13 @@ const verifyB2CSubscriptionUpgrade = asyncHandler(async (req, res) => {
     }
 
     // 1️⃣ Verify signature
-    // const generatedSignature = crypto
-    //     .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-    //     .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-    //     .digest('hex');
+    const generatedSignature = crypto
+        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest('hex');
 
-    // const isValid = generatedSignature === razorpay_signature;
-    let isValid = true;
+    const isValid = generatedSignature === razorpay_signature;
+    // let isValid = true;
 
     if (!isValid) {
         throw new ApiError(400, 'Invalid payment signature');
@@ -707,7 +707,6 @@ const verifyB2CSubscriptionUpgrade = asyncHandler(async (req, res) => {
             // 3.c Apply new currentPlan & mark verified/subscribed, remove pendingPurchase
 
             const currentPlan = {
-                ...updatedUser?.currentPlan,
                 isVerified: true,
                 startDate: new Date(),
                 ...pending.plan,
@@ -722,14 +721,24 @@ const verifyB2CSubscriptionUpgrade = asyncHandler(async (req, res) => {
                     $set: {
                         currentPlan,
                         isSubscribed: true,
-                        "currentPlan.isVerified": true,
-                        "currentPlan.startDate": new Date(),
-                        "currentPlan.upgradeDate": new Date(),
+                        // "currentPlan.isVerified": true,
+                        // "currentPlan.startDate": new Date(),
+                        // "currentPlan.upgradeDate": new Date(),
                     },
                     $unset: { pendingSubscriptionPurchase: "" }
                 },
                 { session }
             );
+
+            await User.findByIdAndUpdate(
+                userId,
+                {
+                    "currentPlan.isVerified": true,
+                    "currentPlan.startDate": new Date(),
+                    "currentPlan.upgradeDate": new Date(),
+                },
+                { session }
+            )
 
             // 3.d Add user to Subscription.currentSubscribers and place user to past subscribers in old plan atomically
             if (pending.plan && pending.plan.subscriptionId) {

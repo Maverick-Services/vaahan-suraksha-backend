@@ -10,6 +10,8 @@ import {
     updateService,
     purchaseB2CUserSubscription,
     verifyB2CSubscriptionPurchase,
+    upgradeB2CUserSubscription,
+    verifyB2CSubscriptionUpgrade,
 } from "../controllers/service.controller.js";
 import { getPaginatedServices, getPaginatedSubscriptions } from "../controllers/pagination.controller.js";
 
@@ -28,6 +30,8 @@ router.route("/subscription/addService").post(verifyJWT, addServiceInSubscriptio
 router.route("/subscription/bulkUpdateServices").post(verifyJWT, bulkServicesUpdateInSubscription);
 router.route("/subscription/b2c/purchase").post(verifyJWT, purchaseB2CUserSubscription);
 router.route("/subscription/b2c/purchase/verify").post(verifyJWT, verifyB2CSubscriptionPurchase);
+router.route("/subscription/upgrade").post(verifyJWT, upgradeB2CUserSubscription);
+router.route("/subscription/upgrade/verify").post(verifyJWT, verifyB2CSubscriptionUpgrade);
 router.route("/subscription/paginated/").get(verifyJWT, getPaginatedSubscriptions);
 router.route("/subscription/").get(getSubscriptions);
 
