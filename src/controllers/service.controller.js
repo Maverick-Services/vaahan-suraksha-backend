@@ -448,8 +448,6 @@ const verifyB2CSubscriptionPurchase = asyncHandler(async (req, res) => {
 
         console.log(currentPlan);
 
-        //TODO: biling history te be updates
-
         // Mark User Subscribed
         updatedUser = await User.findByIdAndUpdate(
             userId,
@@ -463,6 +461,23 @@ const verifyB2CSubscriptionPurchase = asyncHandler(async (req, res) => {
             .populate('car')
             .populate('currentPlan.services');
     }
+
+    // Create billing history entry (example structure)
+    const billingEntry = {
+        orderId: razorpay_order_id,
+        paymentId: razorpay_payment_id,
+        amount: updatedUser?.currentPlan?.price,
+        currency: 'INR',
+        plan: updatedUser?.currentPlan,
+        createdAt: new Date(),
+        status: 'paid'
+    };
+
+    updatedUser = await User.updateOne(
+        { _id: userId },
+        { $push: { billingHistory: billingEntry } },
+        { new: true }
+    );
 
     //Add user in subscription's subscribed member array
     const updatedSubscription = await Subscription.findByIdAndUpdate(
@@ -579,9 +594,9 @@ const upgradeB2CUserSubscription = asyncHandler(async (req, res) => {
             services: serviceIds,
             price: parsedPrice,
             limit: parsedExistingLimit + parsedLimit, // what will be applied after verification
-            startDate: new Date(),
-            //end date to be added
-            upgradeDate: new Date(),
+            // startDate: new Date(),
+            // //end date to be added
+            // upgradeDate: new Date(),
         },
         createdAt: new Date(),
         // Optionally: expiresAt: Date.now() + 1000 * 60 * 60 // 1 hour
@@ -706,7 +721,10 @@ const verifyB2CSubscriptionUpgrade = asyncHandler(async (req, res) => {
                 {
                     $set: {
                         currentPlan,
-                        isSubscribed: true
+                        isSubscribed: true,
+                        "currentPlan.isVerified": true,
+                        "currentPlan.startDate": new Date(),
+                        "currentPlan.upgradeDate": new Date(),
                     },
                     $unset: { pendingSubscriptionPurchase: "" }
                 },
