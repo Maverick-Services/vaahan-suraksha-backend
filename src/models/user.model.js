@@ -36,7 +36,14 @@ const PlanSnapshotSchema = new mongoose.Schema({
     },
     endDate: {
         type: Date
-    } // used for pastPlans
+    }, // used for pastPlans
+    nextBillingDate: {
+        type: Date,
+        // required: [true, "Service limit request is required"]
+    },
+    upgradeDate: {
+        type: Date,
+    },
 }, { _id: false });
 
 const BillingEntrySchema = new mongoose.Schema({
