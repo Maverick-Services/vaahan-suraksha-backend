@@ -457,9 +457,7 @@ const verifyB2CSubscriptionPurchase = asyncHandler(async (req, res) => {
                 isSubscribed: true
             },
             { new: true }
-        ).select('-password -refreshToken')
-            .populate('car')
-            .populate('currentPlan.services');
+        )
     }
 
     // Create billing history entry (example structure)
@@ -473,11 +471,13 @@ const verifyB2CSubscriptionPurchase = asyncHandler(async (req, res) => {
         status: 'paid'
     };
 
-    updatedUser = await User.updateOne(
-        { _id: userId },
+    updatedUser = await User.findByIdAndUpdate(
+        userId,
         { $push: { billingHistory: billingEntry } },
         { new: true }
-    );
+    ).select('-password -refreshToken')
+        .populate('car')
+        .populate('currentPlan.services');
 
     //Add user in subscription's subscribed member array
     const updatedSubscription = await Subscription.findByIdAndUpdate(
