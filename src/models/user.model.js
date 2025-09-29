@@ -3,6 +3,105 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { itemsSchema } from "./product.model.js";
 
+const PlanSnapshotSchema = new mongoose.Schema({
+    subscriptionId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Subscription',
+        required: true
+    },
+    name: {
+        type: String,
+        required: true
+    },
+    services: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Service'
+    }],
+    price: {
+        type: Number,
+        required: true,
+        min: 0
+    },   // rupees (float)
+    limit: {
+        type: Number,
+        required: true,
+        min: 0
+    },   // integer
+    isVerified: {
+        type: Boolean,
+        default: false
+    },
+    startDate: {
+        type: Date
+    },
+    endDate: {
+        type: Date
+    } // used for pastPlans
+}, { _id: false });
+
+const BillingEntrySchema = new mongoose.Schema({
+    orderId: {
+        type: String,
+        required: true
+    },         // razorpay_order_id
+    paymentId: {
+        type: String,
+        required: true
+    },       // razorpay_payment_id
+    signature: {
+        type: String
+    },                       // optional store of signature
+    amount: {
+        type: Number,
+        required: true,
+        min: 0
+    },  // rupees (float)
+    currency: {
+        type: String,
+        default: 'INR'
+    },
+    plan: {
+        type: PlanSnapshotSchema,
+        required: true
+    },// snapshot of plan bought
+    status: {
+        type: String,
+        enum: ['paid', 'failed', 'refunded'],
+        default: 'paid'
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    }
+}, { _id: false });
+
+const PendingSubscriptionPurchaseSchema = new mongoose.Schema({
+    orderId: {
+        type: String,
+        required: true
+    },        // razorpay order id
+    amount: {
+        type: Number,
+        required: true,
+        min: 0
+    }, // rupees (float)
+    currency: {
+        type: String,
+        default: 'INR'
+    },
+    plan: {
+        type: PlanSnapshotSchema,
+        required: true
+    }, // snapshot to apply on success
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    expiresAt: {
+        type: Date
+    }                         // optional expiry
+}, { _id: false });
+
 const billingSchema = new mongoose.Schema({
     subscriptionId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -118,8 +217,17 @@ const userSchema = new mongoose.Schema({
         ref: "User"
     }],
     currentPlan: subscriptionSchema,
-    planHistory: [subscriptionSchema],
-    billingHistory: [billingSchema],
+    pastPlans: { type: [PlanSnapshotSchema], default: [] },
+
+    // billing history stored on user (or you can use a separate Billing collection)
+    billingHistory: { type: [BillingEntrySchema], default: [] },
+
+    pendingSubscriptionPurchase: {
+        type: PendingSubscriptionPurchaseSchema,
+        select: false,
+        default: null
+    },
+
     services: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "Service"

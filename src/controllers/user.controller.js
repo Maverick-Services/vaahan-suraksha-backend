@@ -416,11 +416,55 @@ const loginUser = asyncHandler(async (req, res) => {
 
 })
 
+//Get User Details Function
+const getUserDetails = asyncHandler(async (req, res) => {
+    const currentUser = await User.findById(req?.user?._id)
+        .select("-refreshToken -password -orders")
+        .populate({
+            path: "car",
+            model: "Car",
+            populate: {
+                path: "brand",
+                model: "Brand",
+                select: "_id name image"
+            }
+        })
+        .populate({
+            path: "car",
+            model: "Car",
+            populate: {
+                path: "car_model",
+                model: "CarModel",
+                select: "_id name image carType"
+            }
+        })
+        .populate({
+            path: "currentPlan.subscriptionId",
+            model: "Subscription",
+            select: "_id name"
+        })
+        .populate({
+            path: "currentPlan.services",
+            model: "Service",
+            select: "_id name service_id active images"
+        })
+        .exec();
+
+    if (!currentUser) {
+        throw new ApiError(500, "Could not get user details");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, currentUser, "Plan fetched successfully")
+    )
+});
+
 export {
     createEmployee,
     createCompany,
     createRider,
     createUser,
     updateProfile,
-    loginUser
+    loginUser,
+    getUserDetails
 }

@@ -9,7 +9,7 @@ import Razorpay from "razorpay";
 import { Order } from "../models/order.model.js";
 import crypto from 'crypto';
 import { v4 as uuidv4 } from "uuid";
-import { ROLES } from "../constants.js";
+import { ROLES, USER_TYPE } from "../constants.js";
 import { User } from "../models/user.model.js";
 
 // Razorpy Config
@@ -328,7 +328,9 @@ const getSubscriptions = asyncHandler(async (req, res) => {
 
 });
 
-//Subscription Purchase Management
+// ******************** SUBSCRIPTION MANAGEMENT ************************
+
+//Subscription Purchase Management - B2C
 const purchaseB2CUserSubscription = asyncHandler(async (req, res) => {
 
     let {
@@ -342,6 +344,11 @@ const purchaseB2CUserSubscription = asyncHandler(async (req, res) => {
 
     if (req?.user?.role != ROLES.USER) {
         throw new ApiError(401, "Only customers can purchase subscription.");
+    }
+
+    //Ensure only B2C Customer purchase subscription
+    if (req?.user?.type != USER_TYPE.B2B) {
+        throw new ApiError(401, "Only B2C customer can purchase subscription.");
     }
 
     if (req?.user?.isSubscribed) {
@@ -474,6 +481,255 @@ const verifyB2CSubscriptionPurchase = asyncHandler(async (req, res) => {
         }, "Payment Verified. Subscription purchased successfully")
     );
 });
+
+// //Subscription Upgrade Management - B2C: Not completed yet 
+// const upgradeB2CUserSubscription = asyncHandler(async (req, res) => {
+//     let {
+//         planId,
+//         serviceIds,
+//         price,
+//         limit,
+//     } = req?.body;
+
+//     const razorpay = await razorpayConfig();
+
+//     if (req?.user?.role != ROLES.USER) {
+//         throw new ApiError(401, "Only customers can upgrade subscription.");
+//     }
+
+//     //Ensure only B2C Customer purchase subscription
+//     if (req?.user?.type != USER_TYPE.B2B) {
+//         throw new ApiError(401, "Only B2C customer can upgrade subscription.");
+//     }
+
+//     if (!req?.user?.isSubscribed) {
+//         throw new ApiError(401, "User not subscribed to any plan");
+//     }
+
+//     if (!planId || !price || !limit || limit < 0 || !serviceIds || !serviceIds?.length) {
+//         throw new ApiError(404, "Valid details not found to upgrade subscription.");
+//     }
+
+//     //Check for valid subscription Id
+//     if (!mongoose.Types.ObjectId.isValid(planId)) {
+//         throw new ApiError(404, "Valid Subscription Id required.");
+//     }
+
+//     const foundSubscription = await Subscription.findById(planId);
+//     if (!foundSubscription) {
+//         throw new ApiError(500, "Subscription not found");
+//     }
+
+//     //check if service exist in subscription
+//     for (let serviceId of serviceIds) {
+//         if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+//             throw new ApiError(404, "Valid Service Id required.");
+//         }
+//         if (!foundSubscription?.services?.some(sr => sr?.toString() == serviceId?.toString())) {
+//             throw new ApiError(404, `${serviceId} not found in subscription`);
+//         }
+//     }
+
+//     // Decide the amount to be paid
+//     const existingPlan = req?.user?.currentPlan;
+
+//     // 1️⃣ Validate limit
+//     const parsedLimit = Number(limit);
+//     if (!Number.isInteger(parsedLimit) || parsedLimit < 0) {
+//         throw new ApiError(400, "Limit must be a valid non-negative integer");
+//     }
+//     const parsedExistingLimit = Number(existingPlan?.limit || 0);
+//     if (!Number.isInteger(parsedExistingLimit) || parsedExistingLimit < 0) {
+//         throw new ApiError(400, "Existing limit is invalid");
+//     }
+
+//     // 2️⃣ Validate prices
+//     const parsedPrice = Number(price);
+//     const parsedExistingPrice = Number(existingPlan?.price || 0);
+//     if (isNaN(parsedPrice) || parsedPrice < 0 || isNaN(parsedExistingPrice) || parsedExistingPrice < 0) {
+//         throw new ApiError(400, "Invalid price value");
+//     }
+
+//     // 3️⃣ Decide amount to be paid (higher - lower)
+//     const amountToBePaid = parseFloat(Math.max(0, parsedPrice - parsedExistingPrice).toFixed(2));
+
+//     // 4️⃣ Create Razorpay Order
+//     const razorpayOrder = await razorpay.orders.create({
+//         amount: Math.round(amountToBePaid * 100), // in paise; ensure integer
+//         currency: 'INR',
+//         receipt: `rcpt_${uuidv4().split('-')[0]}`,
+//         payment_capture: 1
+//     });
+
+//     // 5️⃣ Save pending purchase on user (do NOT update currentPlan)
+//     // Build a pending purchase snapshot (stores rupees)
+//     const pendingPurchase = {
+//         orderId: razorpayOrder.id,
+//         amount: amountToBePaid,
+//         currency: razorpayOrder.currency,
+//         plan: {
+//             subscriptionId: planId,
+//             name: foundSubscription?.name,
+//             services: serviceIds,
+//             price: parsedPrice,
+//             limit: parsedExistingLimit + parsedLimit, // what will be applied after verification
+//         },
+//         createdAt: new Date(),
+//         // Optionally: expiresAt: Date.now() + 1000 * 60 * 60 // 1 hour
+//     };
+
+//     // Save pendingPurchase on user
+//     const updatedUser = await User.findByIdAndUpdate(
+//         req.user._id,
+//         { pendingSubscriptionPurchase: pendingPurchase },
+//         { new: true }
+//     ).select('-password -refreshToken');
+
+//     return res.status(201).json(
+//         new ApiResponse(201, {
+//             razorpayOrderId: razorpayOrder.id,
+//             amount: razorpayOrder.amount,
+//             currency: razorpayOrder.currency,
+//             key: process.env.RAZORPAY_KEY_ID,
+//             user: updatedUser
+//         }, 'Razorpay Order Created')
+//     );
+// });
+
+// const verifyB2CSubscriptionUpgrade = asyncHandler(async (req, res) => {
+//     const {
+//         razorpay_order_id,
+//         razorpay_payment_id,
+//         razorpay_signature,
+//         userId
+//     } = req.body;
+
+//     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature ||
+//         !userId || !mongoose.Types.ObjectId.isValid(userId)) {
+//         throw new ApiError(400, 'Payment verification details missing.');
+//     }
+
+//     // 1️⃣ Verify signature
+//     const generatedSignature = crypto
+//         .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+//         .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+//         .digest('hex');
+
+//     const isValid = generatedSignature === razorpay_signature;
+
+//     if (!isValid) {
+//         throw new ApiError(400, 'Invalid payment signature');
+//     }
+
+//     // 2️⃣ Load user & pending purchase
+//     const user = await User.findById(userId).select('+pendingSubscriptionPurchase'); // ensure field present
+//     if (!user) throw new ApiError(404, 'User not found');
+
+//     const pending = user.pendingSubscriptionPurchase;
+//     if (!pending || pending.orderId !== razorpay_order_id) {
+//         throw new ApiError(400, 'No matching pending purchase found for this order');
+//     }
+
+//     // (Optional) verify amount matches (paise)
+//     const expectedPaise = Math.round(pending.amount * 100);
+//     // You may want to compare against the payment gateway amount if available
+
+//     // 3️⃣ Start transaction to apply the plan & billing history atomically
+//     const session = await mongoose.startSession();
+//     try {
+//         await session.withTransaction(async () => {
+//             // Reload user inside session
+//             const userInTx = await User.findById(userId).session(session);
+//             if (!userInTx) throw new Error('User missing in transaction');
+
+//             let oldPlan = null;
+//             if (userInTx.currentPlan && Object.keys(userInTx.currentPlan).length > 0) {
+//                 oldPlan = typeof userInTx.currentPlan.toObject === 'function'
+//                     ? userInTx.currentPlan.toObject()
+//                     : { ...userInTx.currentPlan };
+//             }
+
+
+//             // 3.a Push old plan to pastPlans (if exists)
+//             if (oldPlan && Object.keys(oldPlan).length) {
+//                 // add endDate to oldPlan
+//                 const oldPlanWithEnd = { ...oldPlan, endDate: new Date() };
+//                 await User.updateOne(
+//                     { _id: userId },
+//                     { $push: { pastPlans: oldPlanWithEnd } },
+//                     { session }
+//                 );
+//             }
+
+//             // 3.b Create billing history entry (example structure)
+//             const billingEntry = {
+//                 orderId: razorpay_order_id,
+//                 paymentId: razorpay_payment_id,
+//                 amount: pending.amount,
+//                 currency: pending.currency || 'INR',
+//                 plan: pending.plan,
+//                 createdAt: new Date(),
+//                 status: 'paid'
+//             };
+
+//             await User.updateOne(
+//                 { _id: userId },
+//                 { $push: { billingHistory: billingEntry } },
+//                 { session }
+//             );
+
+//             // 3.c Apply new currentPlan & mark verified/subscribed, remove pendingPurchase
+//             await User.updateOne(
+//                 { _id: userId },
+//                 {
+//                     $set: {
+//                         currentPlan: { ...pending.plan, isVerified: true, startDate: new Date() },
+//                         isSubscribed: true
+//                     },
+//                     $unset: { pendingSubscriptionPurchase: "" }
+//                 },
+//                 { session }
+//             );
+
+//             // 3.d Add user to Subscription.currentSubscribers atomically
+//             if (pending.plan && pending.plan.subscriptionId) {
+//                 await Subscription.findByIdAndUpdate(
+//                     pending.plan.subscriptionId,
+//                     { $addToSet: { currentSubscribers: userId } }, // addToSet avoids duplicates
+//                     { session }
+//                 );
+//             }
+//         }, {
+//             readPreference: 'primary',
+//             readConcern: { level: 'local' },
+//             writeConcern: { w: 'majority' }
+//         });
+
+//         // After commit, return fresh user and subscription
+//         let updatedUser = await User.findById(userId).select('-password -refreshToken').populate('currentPlan.services');
+//         let updatedSubscription = null;
+//         if (updatedUser?.currentPlan?.subscriptionId) {
+//             updatedSubscription = await Subscription.findById(updatedUser.currentPlan.subscriptionId).populate('currentSubscribers');
+//         }
+
+//         return res.status(200).json(
+//             new ApiResponse(200, {
+//                 user: updatedUser,
+//                 subscription: updatedSubscription
+//             }, "Payment Verified. Subscription purchased successfully")
+//         );
+
+//     } catch (err) {
+//         console.error("Payment verification TX failed:", err);
+//         // session.withTransaction aborts on throw; rethrow mapped to ApiError
+//         throw new ApiError(500, err.message || 'Failed to finalize subscription purchase');
+//     } finally {
+//         session.endSession();
+//     }
+// });
+
+//Subscription Purchase Management - B2B
+
 
 // ******************** ORDER MANAGEMENT ************************
 
