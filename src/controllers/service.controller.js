@@ -652,6 +652,7 @@ const verifyB2CSubscriptionUpgrade = asyncHandler(async (req, res) => {
     if (!user) throw new ApiError(404, 'User not found');
 
     const pending = user.pendingSubscriptionPurchase;
+    console.log(pending)
     if (!pending || pending.orderId !== razorpay_order_id) {
         throw new ApiError(400, 'No matching pending purchase found for this order');
     }
