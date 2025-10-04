@@ -63,7 +63,7 @@ const createProduct = asyncHandler(async (req, res) => {
         name, vendor, description,
         slug, active,
         brand: brandId,
-        car_model: carModelId,
+        car_model: carModelId || null,
         images: images ? images : [],
         keyInformation,
         descriptionPoints,
@@ -142,8 +142,8 @@ const updateProduct = asyncHandler(async (req, res) => {
         productId,
         {
             ...updates,
-            brand: updates?.brandId || foundProduct?.brand,
-            car_model: updates?.carModelId
+            brand: updates?.brandId || foundProduct?.brand || null,
+            car_model: updates?.carModelId || foundProduct?.car_model || null
         },
         { new: true }
     ).populate("brand car_model").exec();
