@@ -12,6 +12,8 @@ import {
     verifyB2CSubscriptionPurchase,
     upgradeB2CUserSubscription,
     verifyB2CSubscriptionUpgrade,
+    renewB2CUserSubscription,
+    verifyB2CSubscriptionRenewal,
 } from "../controllers/service.controller.js";
 import { getPaginatedServices, getPaginatedSubscriptions } from "../controllers/pagination.controller.js";
 
@@ -32,6 +34,8 @@ router.route("/subscription/b2c/purchase").post(verifyJWT, purchaseB2CUserSubscr
 router.route("/subscription/b2c/purchase/verify").post(verifyJWT, verifyB2CSubscriptionPurchase);
 router.route("/subscription/upgrade").post(verifyJWT, upgradeB2CUserSubscription);
 router.route("/subscription/upgrade/verify").post(verifyJWT, verifyB2CSubscriptionUpgrade);
+router.route("/subscription/renew").post(verifyJWT, renewB2CUserSubscription);
+router.route("/subscription/renew/verify").post(verifyJWT, verifyB2CSubscriptionRenewal);
 router.route("/subscription/paginated/").get(verifyJWT, getPaginatedSubscriptions);
 router.route("/subscription/").get(getSubscriptions);
 

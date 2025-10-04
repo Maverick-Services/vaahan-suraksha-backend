@@ -104,6 +104,10 @@ const PendingSubscriptionPurchaseSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
+    paymentVerified: {
+        type: Boolean,
+        default: false
+    },                         // optional expiry
     expiresAt: {
         type: Date
     }                         // optional expiry
@@ -144,6 +148,9 @@ const subscriptionSchema = new mongoose.Schema({
     startDate: {
         type: Date,
         // required: [true, "Service limit request is required"]
+    },
+    endDate: {
+        type: Date
     },
     nextBillingDate: {
         type: Date,
@@ -230,6 +237,12 @@ const userSchema = new mongoose.Schema({
     billingHistory: { type: [BillingEntrySchema], default: [] },
 
     pendingSubscriptionPurchase: {
+        type: PendingSubscriptionPurchaseSchema,
+        select: false,
+        default: null
+    },
+
+    renewSubscriptionPurchase: {
         type: PendingSubscriptionPurchaseSchema,
         select: false,
         default: null

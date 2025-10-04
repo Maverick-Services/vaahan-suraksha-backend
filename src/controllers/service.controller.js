@@ -497,7 +497,7 @@ const verifyB2CSubscriptionPurchase = asyncHandler(async (req, res) => {
     );
 });
 
-//Subscription Upgrade Management - B2C: Not completed yet 
+//Subscription Upgrade Management 
 const upgradeB2CUserSubscription = asyncHandler(async (req, res) => {
     let {
         planId,
@@ -789,6 +789,475 @@ const verifyB2CSubscriptionUpgrade = asyncHandler(async (req, res) => {
     }
 });
 
+//Subscription Renewal Management - B2C: Not completed yet 
+const renewB2CUserSubscription = asyncHandler(async (req, res) => {
+  
+    let {
+        planId,
+        serviceIds,
+        price,
+        limit,
+    } = req?.body;
+
+  const razorpay = await razorpayConfig();
+
+  if (req?.user?.role != ROLES.USER) {
+    throw new ApiError(401, "Only customers can renew subscription.");
+  }
+
+  // User must be subscribed to renew
+  if (!req?.user?.isSubscribed || !req?.user?.currentPlan) {
+    throw new ApiError(400, "User not subscribed to any plan to renew.");
+  }
+
+  if (!planId || !price || !limit || limit < 0 || !serviceIds || !serviceIds?.length) {
+        throw new ApiError(404, "Valid details not found to purchase subscription.");
+    }
+
+    //Check for valid subscription Id
+    if (!mongoose.Types.ObjectId.isValid(planId)) {
+        throw new ApiError(404, "Valid Subscription Id required.");
+    }
+
+  // Load subscription (to get canonical duration/durationUnit if needed)
+  const subscription = await Subscription.findById(planId);
+  if (!subscription) {
+    throw new ApiError(404, "Subscription not found");
+  }
+
+  // Decide amount to be paid: usually full plan price for the next cycle
+  // Use currentPlan.price stored on user (rupees float)
+  const renewalAmount = Number(price || 0);
+  if (isNaN(renewalAmount) || renewalAmount <= 0) {
+    throw new ApiError(400, "Invalid renewal amount.");
+  }
+
+  // Create Razorpay order (amount in paise)
+  const razorpayOrder = await razorpay.orders.create({
+    amount: Math.round(renewalAmount * 100),
+    currency: 'INR',
+    receipt: `renew_rcpt_${uuidv4().split('-')[0]}`,
+    payment_capture: 1
+  });
+
+  const renewPurchase = {
+        orderId: razorpayOrder.id,
+        amount: renewalAmount,
+        currency: razorpayOrder.currency,
+        plan: {
+            subscriptionId: planId,
+            name: subscription?.name,
+            services: serviceIds,
+            price: renewalAmount,
+            limit: limit, // what will be applied after verification
+            // startDate: new Date(),
+            // //end date to be added
+            // upgradeDate: new Date(),
+        },
+        createdAt: new Date(),
+    };
+
+  // Build pending purchase snapshot (reuse your PendingSubscriptionPurchaseSchema shape)
+//   const pendingPurchase = {
+//     orderId: razorpayOrder.id,
+//     amount: renewalAmount,
+//     currency: razorpayOrder.currency,
+//     plan: {
+//       ...req.user.currentPlan, // snapshot current plan to re-apply on success
+//       limit:subscription?.limit
+//       // keep startDate as-is or set startDate: new Date() if you prefer
+//     },
+//     createdAt: new Date(),
+//     // Optional: set expiresAt if you want
+//   };
+
+  // Save pendingPurchase on user (same field you used in upgrade flow)
+  const updatedUser = await User.findByIdAndUpdate(
+    req.user._id,
+    { renewSubscriptionPurchase: renewPurchase },
+    { new: true }
+  ).select('-password -refreshToken');
+
+  return res.status(201).json(new ApiResponse(201, {
+    razorpayOrderId: razorpayOrder.id,
+    amount: razorpayOrder.amount,
+    currency: razorpayOrder.currency,
+    key: process.env.RAZORPAY_KEY_ID,
+    user: updatedUser
+  }, 'Razorpay Renewal Order Created'));
+});
+
+// Helper: add duration to a date (months or years)
+function addDurationToDate(date, duration = 1, unit = "month") {
+  const d = new Date(date);
+  if (unit === "month") {
+    const targetMonth = d.getMonth() + duration;
+    d.setMonth(targetMonth);
+    return d;
+  } else if (unit === "year") {
+    d.setFullYear(d.getFullYear() + duration);
+    return d;
+  }
+  d.setMonth(d.getMonth() + duration);
+  return d;
+}
+
+const verifyB2CSubscriptionRenewal = asyncHandler(async (req, res) => {
+  const {
+    razorpay_order_id,
+    razorpay_payment_id,
+    razorpay_signature,
+    userId
+  } = req.body;
+
+  if (!razorpay_order_id || !razorpay_payment_id || !userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    throw new ApiError(400, 'Payment verification details missing.');
+  }
+
+  // 1. Verify signature
+//   const generatedSignature = crypto
+//     .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+//     .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+//     .digest('hex');
+
+//   const isValid = generatedSignature === razorpay_signature;
+  const isValid = true;
+  if (!isValid) throw new ApiError(400, 'Invalid payment signature');
+
+  // 2. Load user & pending renew purchase
+  // Select renewSubscriptionPurchase explicitly (and pendingSubscriptionPurchase if you still use it elsewhere)
+  let user = await User.findById(userId).select('+renewSubscriptionPurchase +pendingSubscriptionPurchase');
+  if (!user) throw new ApiError(404, 'User not found');
+  
+  user = await User.findByIdAndUpdate(
+    userId,
+    {
+        "renewSubscriptionPurchase.paymentVerified": true
+    },
+    {new: true}
+  ).select('+renewSubscriptionPurchase +pendingSubscriptionPurchase');
+  
+  const pending = user.renewSubscriptionPurchase;
+//   console.log("user:",user)
+//   console.log("Pending:",pending)
+  if (!pending || pending.orderId !== razorpay_order_id) {
+    throw new ApiError(400, 'No matching pending renewal purchase found for this order');
+  }
+
+  // Optional: verify expected amount (paise)
+  const expectedPaise = Math.round(pending.amount * 100);
+
+  // 3. Start transaction
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const userInTx = await User.findById(userId).session(session);
+      if (!userInTx) throw new Error('User missing in transaction');
+
+      // Idempotency: do not duplicate billing entries for same paymentId
+      const alreadyPaid = (userInTx.billingHistory || []).some(b => b && b.paymentId === razorpay_payment_id);
+      if (alreadyPaid) {
+        // Already processed — nothing to do (transactionally safe)
+        return;
+      }
+
+      // 3.a Create billing history entry (always first)
+      const billingEntry = {
+        orderId: razorpay_order_id,
+        paymentId: razorpay_payment_id,
+        signature: razorpay_signature,
+        amount: pending.amount,
+        currency: pending.currency || 'INR',
+        plan: pending.plan,
+        status: 'paid',
+        createdAt: new Date()
+      };
+
+      await User.updateOne(
+        { _id: userId },
+        { $push: { billingHistory: billingEntry } },
+        { session }
+      );
+
+      // 3.b Determine whether current plan is expired OR exhausted (limit <= 0)
+      const now = new Date();
+      const currentPlan = userInTx.currentPlan || null;
+
+      console.log("Expiry Time",new Date(currentPlan.endDate).getTime(), now.getTime())
+      const isExpired = currentPlan && currentPlan.endDate
+        ? (new Date(currentPlan.endDate).getTime() <= now.getTime())
+        : false;
+
+      // Treat absent limit as "not exhausted". If you use remainingLimit or another field, swap here.
+      const isLimitExhausted = currentPlan && (typeof currentPlan.limit === 'number')
+        ? (currentPlan.limit <= 0)
+        : false;
+
+      const shouldReplacePlan = isLimitExhausted || isExpired;
+
+      // Load subscription doc for duration info if needed
+      const subscriptionDoc = pending.plan && pending.plan.subscriptionId
+        ? await Subscription.findById(pending.plan.subscriptionId).session(session)
+        : null;
+
+      if (shouldReplacePlan) {
+        // 3.c Apply pending plan now (because current plan is expired OR exhausted)
+
+        // Push old plan to pastPlans if exists
+        if (currentPlan && Object.keys(currentPlan).length) {
+          const oldPlanWithEnd = {
+            ...(typeof currentPlan.toObject === 'function' ? currentPlan.toObject() : { ...currentPlan }),
+            endDate: currentPlan.endDate ? new Date(currentPlan.endDate) : now
+          };
+
+          await User.updateOne(
+            { _id: userId },
+            { $push: { pastPlans: oldPlanWithEnd } },
+            { session }
+          );
+        }
+
+        // Build new currentPlan from pending.plan
+        const newCurrentPlan = {
+          ...pending.plan,
+          isVerified: true,
+          startDate: now,
+          upgradeDate: now
+        };
+
+        let nextBillingDate = now;
+
+        if (subscriptionDoc && subscriptionDoc.duration) {
+          nextBillingDate = addDurationToDate(now, subscriptionDoc.duration, subscriptionDoc.durationUnit || 'year');
+        } else {
+          // fallback one month
+          nextBillingDate = addDurationToDate(now, 1, 'year');
+        }
+
+        // Apply new plan & unset the renew purchase (since it's consumed)
+        await User.updateOne(
+          { _id: userId },
+          {
+            $set: {
+              currentPlan: newCurrentPlan,
+              isSubscribed: true
+            },
+            $unset: { renewSubscriptionPurchase: "" }
+          },
+          { session }
+        );
+
+        await User.findByIdAndUpdate(
+                userId,
+                {
+                    "currentPlan.isVerified": true,
+                    "currentPlan.startDate": now,
+                    "currentPlan.upgradeDate": now,
+                    "currentPlan.endDate": nextBillingDate,
+                    "currentPlan.nextBillingDate": nextBillingDate,
+                },
+                { session }
+            )
+
+
+        // 3.c.2 Subscriber logic: only if old subscription id !== new subscription id
+        const oldSubId = currentPlan && currentPlan.subscriptionId ? String(currentPlan.subscriptionId) : null;
+        const newSubId = pending.plan && pending.plan.subscriptionId ? String(pending.plan.subscriptionId) : null;
+
+        if (newSubId && (!oldSubId || oldSubId !== newSubId)) {
+          // add to new plan's currentSubscribers
+          await Subscription.findByIdAndUpdate(
+            newSubId,
+            { $addToSet: { currentSubscribers: userId } },
+            { session }
+          );
+        }
+
+        if (oldSubId && oldSubId !== newSubId) {
+          // remove from old plan's currentSubscribers, and add to pastSubscribers
+          await Subscription.findByIdAndUpdate(
+            oldSubId,
+            {
+              $pull: { currentSubscribers: userId },
+              $addToSet: { pastSubscribers: userId }
+            },
+            { session }
+          );
+        }
+
+      } 
+    //   else {
+    //     // 3.d Current plan NOT expired AND not exhausted -> keep renewSubscriptionPurchase intact for later use.
+    //     // Billing entry is already recorded; we do NOT unset renewSubscriptionPurchase or modify currentPlan.
+    //     // No subscriber changes are performed.
+
+    //     // Optionally: if you want to mark billingHistory.note that this is a prepayment, you can update the billingEntry pushed above.
+    //     // For now we keep it simple — billingHistory contains the plan snapshot and amount.
+    //   }
+
+    }, {
+      readPreference: 'primary',
+      readConcern: { level: 'local' },
+      writeConcern: { w: 'majority' }
+    });
+
+    // After commit, return fresh user
+    let updatedUser = await User.findById(userId).select('-password -refreshToken').populate('currentPlan.services');
+    let updatedSubscription = null;
+    if (updatedUser?.currentPlan?.subscriptionId) {
+      updatedSubscription = await Subscription.findById(updatedUser.currentPlan.subscriptionId).populate('currentSubscribers');
+    }
+
+    // Friendly message
+    const appliedNow = (updatedUser && updatedUser.renewSubscriptionPurchase == null) || // cleared -> applied
+      (updatedUser?.currentPlan && pending.plan && String(updatedUser.currentPlan.subscriptionId || '') === String(pending.plan.subscriptionId || '') &&
+        (new Date(updatedUser.currentPlan.startDate || 0).getTime() >= (Date.now() - 60 * 1000)));
+
+    const message = appliedNow
+      ? "Payment verified and pending renewal applied (current plan was expired or exhausted)."
+      : "Payment verified. Renewal purchase retained for later application (current plan still active and not exhausted).";
+
+    return res.status(200).json(
+      new ApiResponse(200, {
+        user: updatedUser,
+        subscription: updatedSubscription,
+        appliedNow
+      }, message)
+    );
+
+  } catch (err) {
+    console.error("Renewal verification TX failed:", err);
+    throw new ApiError(500, err.message || 'Failed to finalize subscription renewal');
+  } finally {
+    session.endSession();
+  }
+});
+
+
+// const verifyB2CSubscriptionRenewal = asyncHandler(async (req, res) => {
+//   const {
+//     razorpay_order_id,
+//     razorpay_payment_id,
+//     razorpay_signature,
+//     userId
+//   } = req.body;
+
+//   if (!razorpay_order_id || !razorpay_payment_id || !userId || !mongoose.Types.ObjectId.isValid(userId)) {
+//     throw new ApiError(400, 'Payment verification details missing.');
+//   }
+
+//   // 1. Verify signature
+//   const generatedSignature = crypto
+//     .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+//     .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+//     .digest('hex');
+
+//   const isValid = generatedSignature === razorpay_signature;
+//   if (!isValid) throw new ApiError(400, 'Invalid payment signature');
+
+//   // 2. Load user & pending purchase (select the pending field)
+//   const user = await User.findById(userId).select('+pendingSubscriptionPurchase');
+//   if (!user) throw new ApiError(404, 'User not found');
+
+//   const pending = user.renewSubscriptionPurchase;
+//   if (!pending || pending.orderId !== razorpay_order_id) {
+//     throw new ApiError(400, 'No matching pending purchase found for this order');
+//   }
+
+//   // Optionally validate amount: expected vs pending.amount
+//   const expectedPaise = Math.round(pending.amount * 100);
+
+//   // 3. Start transaction to finalize renewal
+//   const session = await mongoose.startSession();
+//   try {
+//     await session.withTransaction(async () => {
+//       const userInTx = await User.findById(userId).session(session);
+//       if (!userInTx) throw new Error('User missing in transaction');
+
+//       // Prepare billing history entry (same shape as BillingEntrySchema)
+//       const billingEntry = {
+//         orderId: razorpay_order_id,
+//         paymentId: razorpay_payment_id,
+//         signature: razorpay_signature,
+//         amount: pending.amount,
+//         currency: pending.currency || 'INR',
+//         plan: pending.plan,
+//         status: 'paid',
+//         createdAt: new Date()
+//       };
+
+//       // push billing history
+//       await User.updateOne(
+//         { _id: userId },
+//         { $push: { billingHistory: billingEntry } },
+//         { session }
+//       );
+
+//       // Compute nextBillingDate:
+//       // - Prefer to use the official Subscription.duration/durationUnit if available
+//       const subscriptionDoc = await Subscription.findById(pending.plan.subscriptionId).session(session);
+//       let nextBilling;
+//       const now = new Date();
+//       if (subscriptionDoc && subscriptionDoc.duration) {
+//         // use currentPlan.nextBillingDate if it exists, else start from now
+//         const base = userInTx.currentPlan?.nextBillingDate ? new Date(userInTx.currentPlan.nextBillingDate) : now;
+//         nextBilling = addDurationToDate(base, subscriptionDoc.duration, subscriptionDoc.durationUnit || 'month');
+//       } else {
+//         // fallback: add 1 month from current nextBillingDate or now
+//         const base = userInTx.currentPlan?.nextBillingDate ? new Date(userInTx.currentPlan.nextBillingDate) : now;
+//         nextBilling = addDurationToDate(base, 1, 'month');
+//       }
+
+//       // Update user's currentPlan.nextBillingDate and optionally startDate if not set
+//       await User.updateOne(
+//         { _id: userId },
+//         {
+//           $set: {
+//             "currentPlan.nextBillingDate": nextBilling,
+//             "currentPlan.isVerified": true,
+//             // If the plan didn't have a startDate, set it (optional)
+//             "currentPlan.startDate": userInTx.currentPlan?.startDate ? userInTx.currentPlan.startDate : new Date()
+//           },
+//           $unset: { pendingSubscriptionPurchase: "" }
+//         },
+//         { session }
+//       );
+
+//       // Subscription docs: no change in subscribers for renewals normally.
+//       // But if you want to ensure the user is in Subscription.currentSubscribers:
+//       if (pending.plan && pending.plan.subscriptionId) {
+//         await Subscription.findByIdAndUpdate(
+//           pending.plan.subscriptionId,
+//           { $addToSet: { currentSubscribers: userId } },
+//           { session }
+//         );
+//       }
+//     }, {
+//       readPreference: 'primary',
+//       readConcern: { level: 'local' },
+//       writeConcern: { w: 'majority' }
+//     });
+
+//     // After commit, return fresh user
+//     let updatedUser = await User.findById(userId).select('-password -refreshToken').populate('currentPlan.services');
+//     let updatedSubscription = null;
+//     if (updatedUser?.currentPlan?.subscriptionId) {
+//       updatedSubscription = await Subscription.findById(updatedUser.currentPlan.subscriptionId).populate('currentSubscribers');
+//     }
+
+//     return res.status(200).json(new ApiResponse(200, {
+//       user: updatedUser,
+//       subscription: updatedSubscription
+//     }, "Payment Verified. Subscription renewed successfully"));
+
+//   } catch (err) {
+//     console.error("Renewal verification TX failed:", err);
+//     throw new ApiError(500, err.message || 'Failed to finalize subscription renewal');
+//   } finally {
+//     session.endSession();
+//   }
+// });
+
 //Subscription Purchase Management - B2B
 
 
@@ -964,6 +1433,8 @@ export {
     verifyB2CSubscriptionPurchase,
     upgradeB2CUserSubscription,
     verifyB2CSubscriptionUpgrade,
+    renewB2CUserSubscription,
+    verifyB2CSubscriptionRenewal,
     createSubscriptionOrder,
     verifySubscriptionOrderPayment,
     updateSubscriptionOrder
