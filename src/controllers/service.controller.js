@@ -915,13 +915,13 @@ const verifyB2CSubscriptionRenewal = asyncHandler(async (req, res) => {
   }
 
   // 1. Verify signature
-//   const generatedSignature = crypto
-//     .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-//     .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-//     .digest('hex');
+  const generatedSignature = crypto
+    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+    .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+    .digest('hex');
 
-//   const isValid = generatedSignature === razorpay_signature;
-  const isValid = true;
+  const isValid = generatedSignature === razorpay_signature;
+//   const isValid = true;
   if (!isValid) throw new ApiError(400, 'Invalid payment signature');
 
   // 2. Load user & pending renew purchase
