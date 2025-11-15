@@ -331,6 +331,67 @@ const acceptOrderByMechanic = asyncHandler(async (req, res) => {
     );
 })
 
+//All Order Functions
+const getOrderById = asyncHandler(async (req, res) => {
+       
+    const { _id } = req?.params;
+
+    /* ------------------------------ 1. validation ----------------------------- */
+    if (!_id) {
+        throw new ApiError(400, "Order Id is required");
+    }
+
+    const myOrders = await Order.findById(_id)
+        // .populate("subscriptionId oneTimePlan")
+        .populate({
+            path:"mechanic",
+            model:"User",
+            select: "_id name user_id emil phoneNo role"
+        })
+        .populate({
+            path:"services",
+            model:"Service",
+            select: "_id name service_id active images"
+        })
+        .populate({
+            path: "spareParts.productId",
+            model: "Product",
+            select: "images _id name"
+        });
+
+    if (!myOrders) {
+        throw new ApiError(500, "Could not get order details");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, myOrders, "Orders fetched successfully")
+    )
+});
+
+//All Order Functions
+const getAllOrders = asyncHandler(async (req, res) => {
+    const allOrders = await Order.find({})
+        .populate({
+            path:"services",
+            model:"Service",
+            select: "_id name service_id active images"
+        })
+        // .populate("services mechanic")
+        // .populate({
+        //     path: "spareParts.productId",
+        //     model: "Product",
+        //     select: "images _id name"
+        // });
+
+    if (!allOrders) {
+        throw new ApiError(500, "Could not get orders");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, allOrders, "Orders fetched successfully")
+    )
+});
+
 //Common Order Functions
 const getMyOrders = asyncHandler(async (req, res) => {
     const myOrders = await Order.find({
@@ -735,7 +796,9 @@ export {
     createOneTimeOrder,
     verifyOneTimeOrderPayment,
     createSubscribedUserOrder,
+    getAllOrders,
     getMyOrders,
+    getOrderById,
     acceptOrderByMechanic,
     // addSparePartToOrder,
     // removeSparePartFromOrder

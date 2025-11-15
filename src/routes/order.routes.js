@@ -10,6 +10,8 @@ import {
     createSubscribedUserOrder,
     getMyOrders,
     acceptOrderByMechanic,
+    getAllOrders,
+    getOrderById,
     // addSparePartToOrder,
     // removeSparePartFromOrder,
 } from "../controllers/order.controller.js";
@@ -26,6 +28,8 @@ router.route("/accept").post(verifyJWT, acceptOrderByMechanic);
 // router.route("/parts/add").post(verifyJWT, addSparePartToOrder);
 // router.route("/parts/remove").post(verifyJWT, removeSparePartFromOrder);
 router.route("/my").get(verifyJWT, getMyOrders);
+router.route("/").get(verifyJWT, getAllOrders);
+router.route("/:_id").get(verifyJWT, getOrderById);
 
 
 export default router
