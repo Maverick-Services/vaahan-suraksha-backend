@@ -419,7 +419,7 @@ const loginUser = asyncHandler(async (req, res) => {
 //Get User Details Function
 const getUserDetails = asyncHandler(async (req, res) => {
     const currentUser = await User.findById(req?.user?._id)
-        .select("-refreshToken -password -orders")
+        .select("-refreshToken -password")
         .populate({
             path: "car",
             model: "Car",
