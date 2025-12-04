@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { itemsSchema } from "./product.model.js";
+import { carSchema } from "./car.model.js";
 
 const orderSchema = new mongoose.Schema({
     paidAmount: {
@@ -32,6 +33,22 @@ const orderSchema = new mongoose.Schema({
         // default: "oneTime"
     },
 
+    car:{
+        transmission: {
+            type: String,
+            enum: ["Automatic", "Manual"],
+            default: "Manual"
+        },
+        fuel: {
+            type: String,
+            enum: ["Petrol", "Disel", "CNG"],
+            default: "Petrol"
+        },
+        image: String,
+        brand: String,
+        car_model: String,
+    },
+
     /****************  ORDER TRACKING  *****************/
     status: {
         type: String,
@@ -58,6 +75,10 @@ const orderSchema = new mongoose.Schema({
     /****************  PAYMENT FIELDS  *****************/
     razorpayOrderId: String,
     razorpayPaymentId: String,
+    isVerified: {
+        type: Boolean,
+        default: false
+    },
     paymentStatus: {
         type: String,
         enum: ["Paid", "Pending"],

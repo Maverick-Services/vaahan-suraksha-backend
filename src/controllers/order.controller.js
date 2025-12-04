@@ -11,6 +11,7 @@ import { ORDER_TYPES, ROLES, STATUS } from "../constants.js";
 import { User } from "../models/user.model.js";
 import { OneTime } from "../models/oneTimePlan.model.js";
 import { Product } from "../models/product.model.js";
+import { Car } from "../models/car.model.js";
 
 // Razorpy Config
 const razorpayConfig = () => {
@@ -35,18 +36,43 @@ const createOneTimeOrder = asyncHandler(async (req, res) => {
         carType
     } = req?.body;
 
+    const {
+        car: carId,
+    } = req?.user;
+    
     const razorpay = await razorpayConfig();
-
+    
     if (req?.user?.role != ROLES.USER) {
         throw new ApiError(401, "Only customers can buy services.");
     }
-
+    
     if (!planId || !pricingType || amount == undefined || amount < 0 || !serviceIds || !serviceIds?.length) {
         throw new ApiError(404, "Valid details not found to create Order.");
     }
-
+    
     if (!name || !phoneNo || !scheduledOn || !location) {
         throw new ApiError(404, "Customer details not found.");
+    }
+    
+    //Check for valid plan Id
+    if (!mongoose.Types.ObjectId.isValid(carId)) {
+        throw new ApiError(404, "Valid Car Id required.");
+    }
+    
+    const foundCar = await Car.findById(carId)
+    .populate({
+        path:"brand",
+        model: "Brand",
+        select: "name"
+    })
+    .populate({
+        path:"car_model",
+        model: "CarModel",
+        select: "name"
+    });
+
+    if (!foundCar) {
+        throw new ApiError(500, "Car not found");
     }
 
     //Check for valid plan Id
@@ -69,15 +95,16 @@ const createOneTimeOrder = asyncHandler(async (req, res) => {
         }
     }
 
-    // 1️⃣ Create Razorpay Order
-    const razorpayOrder = await razorpay.orders.create({
-        amount: amount * 100, // in paise
-        currency: 'INR',
-        receipt: `rcpt_${uuidv4().split('-')[0]}`,
-        payment_capture: 1
-    });
+    amount = foundPlan.pricing.get(carType)
+    let car = {
+        transmission: foundCar?.transmission,
+        fuel: foundCar?.fuel || "",
+        image: foundCar?.image || "",
+        brand: foundCar?.brand?.name || "",
+        car_model: foundCar?.car_model?.name || ""
+    }
 
-    const newOrder = await Order.create({
+    const newOrder = new Order({
         serviceCharge: amount,
         paidAmount: amount,
         orderAmount: amount,
@@ -89,8 +116,23 @@ const createOneTimeOrder = asyncHandler(async (req, res) => {
         scheduledOn,
         location,
         carType,
+        car,
         userId: req?.user?._id
     });
+
+
+    // 1️⃣ Create Razorpay Order
+    const razorpayOrder = await razorpay.orders.create({
+        amount: newOrder?.orderAmount * 100, // in paise
+        currency: 'INR',
+        receipt: `rcpt_${uuidv4().split('-')[0]}`,
+        payment_capture: 1
+    });
+
+
+    if(razorpayOrder){
+        await newOrder.save();
+    }
 
     return res.status(201).json(
         new ApiResponse(201, {
@@ -131,6 +173,7 @@ const verifyOneTimeOrderPayment = asyncHandler(async (req, res) => {
         order.paymentStatus = "Paid";
         order.razorpayOrderId = razorpay_order_id;
         order.razorpayPaymentId = razorpay_payment_id;
+        order.isVerified = true;
         await order.save();
 
         // Add Order in User Order
@@ -160,29 +203,55 @@ const createSubscribedUserOrder = asyncHandler(async (req, res) => {
         pricingType
     } = req?.body;
 
-
+    const {
+        car: carId,
+    } = req?.user;
+    
     if (req?.user?.role != ROLES.USER) {
         throw new ApiError(401, "Only customers can book subscription.");
     }
-
+    
     if (!req?.user?.isSubscribed) {
         throw new ApiError(401, "User not Subscribed");
     }
-
+    
     if (!req?.user?.currentPlan?.isVerified) {
         throw new ApiError(401, "Subscription not verified");
     }
-
+    
     if (req?.user?.currentPlan?.limit < 1) {
         throw new ApiError(400, "Service limit exhausted, Renew Subscription");
     }
-
+    
+    //Taking plan/subscription id from user model dependent on backend only
+    planId = req?.user?.currentPlan?.subscriptionId
     if (!planId || !serviceIds || !serviceIds?.length) {
         throw new ApiError(404, "Valid details not found to create Order.");
     }
 
     if (!name || !phoneNo || !scheduledOn || !location) {
         throw new ApiError(404, "Customer details not found.");
+    }
+
+    //Check for valid plan Id
+    if (!mongoose.Types.ObjectId.isValid(carId)) {
+        throw new ApiError(404, "Valid Car Id required.");
+    }
+    
+    const foundCar = await Car.findById(carId)
+    .populate({
+        path:"brand",
+        model: "Brand",
+        select: "name"
+    })
+    .populate({
+        path:"car_model",
+        model: "CarModel",
+        select: "name"
+    });
+
+    if (!foundCar) {
+        throw new ApiError(500, "Car not found");
     }
 
     //Check for valid subscription Id
@@ -205,6 +274,13 @@ const createSubscribedUserOrder = asyncHandler(async (req, res) => {
         }
     }
 
+    let car = {
+        transmission: foundCar?.transmission,
+        fuel: foundCar?.fuel || "",
+        image: foundCar?.image || "",
+        brand: foundCar?.brand?.name || "",
+        car_model: foundCar?.car_model?.name || ""
+    }
     const newOrder = await Order.create({
         serviceCharge: 0,
         paidAmount: 0,
@@ -217,6 +293,8 @@ const createSubscribedUserOrder = asyncHandler(async (req, res) => {
         name, phoneNo,
         scheduledOn,
         location,
+        car,
+        isVerified:true,
         userId: req?.user?._id
     });
 
@@ -370,7 +448,7 @@ const getOrderById = asyncHandler(async (req, res) => {
 
 //All Order Functions
 const getAllOrders = asyncHandler(async (req, res) => {
-    const allOrders = await Order.find({})
+    const allOrders = await Order.find({isVerified:true})
         .populate({
             path:"services",
             model:"Service",
